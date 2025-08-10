@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 09/08/2025 13:24:03
+ Date: 10/08/2025 15:57:59
 */
 
 SET NAMES utf8mb4;
@@ -114,32 +114,32 @@ CREATE TABLE `users`  (
   `role` tinyint NULL DEFAULT 1 COMMENT '用户角色：1=普通用户, 2=管理员, 3=超级管理员',
   `last_login_at` datetime NULL DEFAULT NULL,
   `last_login_ip` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
   `gender` enum('male','female','other') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '性别',
   `region` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '地区（根据IP自动获取）',
   `ip_address` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '注册时的IP地址',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_2`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_3`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_4`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_5`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_6`(`username` ASC) USING BTREE,
+  UNIQUE INDEX `username_7`(`username` ASC) USING BTREE,
   UNIQUE INDEX `uk_email`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_2`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_3`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_4`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_5`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_6`(`email` ASC) USING BTREE,
+  UNIQUE INDEX `email_7`(`email` ASC) USING BTREE,
   INDEX `idx_phone`(`phone` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE,
   INDEX `idx_role`(`role` ASC) USING BTREE,
   INDEX `idx_created_at`(`created_at` ASC) USING BTREE,
-  UNIQUE INDEX `username`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_2`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_2`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_3`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_3`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_4`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_4`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_5`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_5`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_6`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_6`(`email` ASC) USING BTREE,
-  UNIQUE INDEX `username_7`(`username` ASC) USING BTREE,
-  UNIQUE INDEX `email_7`(`email` ASC) USING BTREE,
   INDEX `idx_gender`(`gender` ASC) USING BTREE,
   INDEX `idx_region`(`region` ASC) USING BTREE,
   INDEX `idx_ip_address`(`ip_address` ASC) USING BTREE
@@ -200,11 +200,11 @@ CREATE TABLE `vehicles`  (
   INDEX `idx_car_brand`(`car_brand` ASC) USING BTREE,
   INDEX `idx_year`(`year` ASC) USING BTREE,
   INDEX `idx_created_at`(`created_at` ASC) USING BTREE,
-  INDEX `idx_extra_fields`((cast(json_unquote(json_extract(`extra_fields`,_utf8mb4\'$.cargo_capacity\')) as char(50) charset utf8mb4)) ASC) USING BTREE,
   INDEX `idx_current_price`(`current_price` ASC) USING BTREE,
   INDEX `idx_original_price`(`original_price` ASC) USING BTREE,
   INDEX `idx_contact_name`(`contact_name` ASC) USING BTREE,
-  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE
+  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE,
+  INDEX `idx_extra_fields`((cast(json_unquote(json_extract(`extra_fields`,_utf8mb4\'$.cargo_capacity\')) as char(50) charset utf8mb4)) ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 20748 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆基础信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
