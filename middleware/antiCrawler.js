@@ -103,42 +103,45 @@ const detectCrawler = (req, res, next) => {
     req.headers[header] && req.headers[header] !== ip
   );
   
-  // 检测请求频率（支持两种模式）
-  // 模式1：按IP+User-Agent限制（默认）
-  // 模式2：按IP限制（更严格）
-  const useStrictIPLimit = process.env.CRAWLER_STRICT_IP_LIMIT === 'true';
-  const requestKey = useStrictIPLimit ? ip : `${ip}-${userAgent}`;
-  const now = Date.now();
-  
-  if (!req.app.locals.requestHistory) {
-    req.app.locals.requestHistory = new Map();
-  }
-  
-  const history = req.app.locals.requestHistory.get(requestKey) || [];
-  const recentRequests = history.filter(time => now - time < 60000); // 1分钟内的请求
-  
-  // 如果1分钟内请求超过配置的限制，标记为可疑
-  const maxRequestsPerMinute = parseInt(process.env.CRAWLER_MAX_REQUESTS_PER_MINUTE);
-  const isHighFrequency = recentRequests.length > maxRequestsPerMinute;
-  
-  if (isCrawler || hasSuspiciousHeaders || isHighFrequency) {
-    // 记录可疑请求
-    const limitType = useStrictIPLimit ? 'IP' : 'IP+User-Agent';
-    console.log(`可疑请求检测: IP=${ip}, UA=${userAgent}, 频率=${recentRequests.length}/min, 限制模式=${limitType}`);
+  // 只有在启用爬虫检测时才进行频率检查
+  if (process.env.CRAWLER_DETECTION_ENABLED === 'true') {
+    // 检测请求频率（支持两种模式）
+    // 模式1：按IP+User-Agent限制（默认）
+    // 模式2：按IP限制（更严格）
+    const useStrictIPLimit = process.env.CRAWLER_STRICT_IP_LIMIT === 'true';
+    const requestKey = useStrictIPLimit ? ip : `${ip}-${userAgent}`;
+    const now = Date.now();
     
-    // 对于明显的爬虫，返回假数据或延迟响应
-    if (isCrawler) {
-      return res.status(403).json({
-        code: 403,
-        message: '访问被拒绝',
-        data: null
-      });
+    if (!req.app.locals.requestHistory) {
+      req.app.locals.requestHistory = new Map();
     }
+    
+    const history = req.app.locals.requestHistory.get(requestKey) || [];
+    const recentRequests = history.filter(time => now - time < 60000); // 1分钟内的请求
+    
+    // 如果1分钟内请求超过配置的限制，标记为可疑
+    const maxRequestsPerMinute = parseInt(process.env.CRAWLER_MAX_REQUESTS_PER_MINUTE);
+    const isHighFrequency = recentRequests.length > maxRequestsPerMinute;
+    
+    if (isCrawler || hasSuspiciousHeaders || isHighFrequency) {
+      // 记录可疑请求
+      const limitType = useStrictIPLimit ? 'IP' : 'IP+User-Agent';
+      console.log(`可疑请求检测: IP=${ip}, UA=${userAgent}, 频率=${recentRequests.length}/min, 限制模式=${limitType}`);
+      
+      // 对于明显的爬虫，返回假数据或延迟响应
+      if (isCrawler) {
+        return res.status(403).json({
+          code: 403,
+          message: '访问被拒绝',
+          data: null
+        });
+      }
+    }
+    
+    // 更新请求历史
+    recentRequests.push(now);
+    req.app.locals.requestHistory.set(requestKey, recentRequests);
   }
-  
-  // 更新请求历史
-  recentRequests.push(now);
-  req.app.locals.requestHistory.set(requestKey, recentRequests);
   
   next();
 };
@@ -248,9 +251,9 @@ const intelligentAntiCrawler = (req, res, next) => {
   const timeDiff = now - lastRequest;
   
   // 如果同一API请求间隔太短（小于配置的最小间隔），可能是自动化工具
-  const minRequestInterval = parseInt(process.env.CRAWLER_MIN_REQUEST_INTERVAL_MS);
-  // 只有当间隔小于10毫秒时才限制（非常宽松）
-  if (timeDiff < 10 && req.path.startsWith('/api/')) {
+  const minRequestInterval = parseInt(process.env.CRAWLER_MIN_REQUEST_INTERVAL_MS) || 0;
+  // 使用配置的最小间隔，如果为0则禁用此检查
+  if (minRequestInterval > 0 && timeDiff < minRequestInterval && req.path.startsWith('/api/')) {
     return res.status(429).json({
       code: 429,
       message: '请求过于频繁',
