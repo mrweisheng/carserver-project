@@ -37,8 +37,16 @@ const registerValidation = [
     .isIn(['male', 'female', 'other'])
     .withMessage('性别必须是 male、female 或 other'),
   body('phone')
-    .isMobilePhone('zh-CN')
-    .withMessage('手机号格式不正确'),
+    .custom((value) => {
+      // 支持中国大陆手机号（11位）和香港手机号（8位）
+      const chinaMainlandPattern = /^1[3-9]\d{9}$/; // 中国大陆11位手机号
+      const hongKongPattern = /^[2-9]\d{7}$/; // 香港8位手机号
+      
+      if (chinaMainlandPattern.test(value) || hongKongPattern.test(value)) {
+        return true;
+      }
+      throw new Error('手机号格式不正确，请输入有效的中国大陆手机号（11位）或香港手机号（8位）');
+    }),
   body('captcha')
     .isLength({ min: 4, max: 4 })
     .withMessage('验证码必须是4位数字'),

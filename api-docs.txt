@@ -34,7 +34,7 @@
   - `real_name`: 字符串，必填，1-50个字符，联络人姓名
   - `email`: 字符串，可选，邮箱格式，客户信息
   - `gender`: 字符串，必填，male/female/other
-  - `phone`: 字符串，必填，手机号格式
+  - `phone`: 字符串，必填，手机号格式（支持中国大陆11位手机号和香港8位手机号）
   - `captcha`: 字符串，必填，4位数字验证码
   - `captchaId`: 字符串，必填，验证码ID
 - **响应**: 用户信息和JWT令牌
@@ -616,7 +616,7 @@
 # 1. 获取验证码
 GET /api/captcha
 
-# 2. 用户注册
+# 2. 用户注册（中国大陆手机号示例）
 POST /api/auth/register
 Content-Type: application/json
 
@@ -630,9 +630,24 @@ Content-Type: application/json
   "captcha": "1234",
   "captchaId": "abc123"
 }
+
+# 3. 用户注册（香港手机号示例）
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "username": "hkuser",
+  "password": "123456",
+  "real_name": "香港用户",
+  "email": "hk@example.com",
+  "gender": "female",
+  "phone": "98765432",
+  "captcha": "5678",
+  "captchaId": "def456"
+}
 ```
 
-### 2. 车辆查询对比
+### 4. 车辆查询对比
 ```bash
 # 未登录查询（手机号脱敏）
 GET /api/vehicles?page=1&limit=5
@@ -644,7 +659,7 @@ Authorization: Bearer <your_jwt_token>
 # 响应: phone_number: "13800138000"
 ```
 
-### 3. 品牌查询示例
+### 5. 品牌查询示例
 ```bash
 # 1. 获取品牌列表
 GET /api/vehicles/brands
@@ -659,7 +674,7 @@ GET /api/vehicles?car_brand=丰田&page=1&limit=10
 # 查询包含"丰田"的品牌，如"丰田", "广汽丰田"等
 ```
 
-### 4. 价格区间查询示例
+### 6. 价格区间查询示例
 ```bash
 # 1. 查询价格在10万到30万之间的车辆
 GET /api/vehicles?min_price=100000&max_price=300000&page=1&limit=10
@@ -674,7 +689,7 @@ GET /api/vehicles?max_price=500000&page=1&limit=10
 GET /api/vehicles?car_brand=exact:丰田&min_price=200000&max_price=400000&year=>2020&page=1&limit=10
 ```
 
-### 5. 精选车辆查询示例
+### 7. 精选车辆查询示例
 ```bash
 # 获取精选车辆（未登录，手机号脱敏）
 GET /api/vehicles/featured
@@ -688,7 +703,7 @@ Authorization: Bearer <your_jwt_token>
 # 筛选条件: 私家车 + 2017-2025年 + 现价15-27万 + 原价>现价
 ```
 
-### 6. 最新上架车辆查询示例
+### 8. 最新上架车辆查询示例
 ```bash
 # 获取最新上架车辆（未登录，手机号脱敏）
 GET /api/vehicles/latest
