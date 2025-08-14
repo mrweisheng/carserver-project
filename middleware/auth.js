@@ -26,7 +26,14 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    req.user = decoded;
+    req.user = {
+      id: user.id,
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      ...decoded
+    };
     next();
   } catch (error) {
     console.error('Token验证失败:', error);
@@ -49,7 +56,14 @@ const optionalAuth = async (req, res, next) => {
       const user = await User.findByPk(decoded.userId);
       
       if (user) {
-        req.user = decoded;
+        req.user = {
+          id: user.id,
+          userId: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          ...decoded
+        };
       }
     }
     
