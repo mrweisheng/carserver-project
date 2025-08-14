@@ -25,14 +25,7 @@ class VehicleController {
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
       
-      // 调试日志
-      console.log('车辆列表请求 - 用户信息:', {
-        hasUser: !!req.user,
-        userId: req.user?.id,
-        username: req.user?.username,
-        isLoggedIn: isLoggedIn,
-        authHeader: req.headers.authorization ? 'Bearer token存在' : '无Authorization头'
-      });
+
 
       // 构建查询条件
       const where = {};
@@ -146,7 +139,7 @@ class VehicleController {
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
           'transmission', 'description', 'price', 'current_price', 'original_price',
-          'contact_name', 'phone_number', 'created_at'
+          'contact_name', 'phone_number', 'contact_info', 'created_at'
         ],
         include: [
           {
@@ -162,6 +155,28 @@ class VehicleController {
       // 处理手机号脱敏
       const processedVehicles = vehicles.map(vehicle => {
         const vehicleData = vehicle.toJSON();
+        
+        // 如果contact_name或phone_number为null，尝试从contact_info中提取
+        if (!vehicleData.contact_name || !vehicleData.phone_number) {
+          if (vehicleData.contact_info) {
+            // 提取联系人姓名（通常在开头）
+            if (!vehicleData.contact_name) {
+              const nameMatch = vehicleData.contact_info.match(/^([^\s]+(?:\s+[^\s]+)*?)(?:\s|電|电|郵|邮|Tel|tel|電話|电话|手機|手机|WhatsApp|微信|:|：)/i);
+              if (nameMatch) {
+                vehicleData.contact_name = nameMatch[1].trim();
+              }
+            }
+            
+            // 提取电话号码（支持多种格式：8位数字、带区号等）
+            if (!vehicleData.phone_number) {
+              const phoneMatch = vehicleData.contact_info.match(/(?:電話|电话|Tel|tel|手機|手机|WhatsApp|微信|Phone|phone)[：:]?\s*([\d\s\-\+\(\)]{8,15})|\b(\d{8})\b/);
+              if (phoneMatch) {
+                vehicleData.phone_number = (phoneMatch[1] || phoneMatch[2]).replace(/[\s\-\(\)]/g, '');
+              }
+            }
+          }
+        }
+        
         if (vehicleData.phone_number) {
           vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
         }
@@ -217,15 +232,7 @@ class VehicleController {
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
       
-      // 调试日志
-      console.log('车辆详情请求 - 用户信息:', {
-        hasUser: !!req.user,
-        userId: req.user?.id,
-        username: req.user?.username,
-        isLoggedIn: isLoggedIn,
-        authHeader: req.headers.authorization ? 'Bearer token存在' : '无Authorization头',
-        vehicleId: vehicleId
-      });
+
 
       // 查询车辆基本信息
       const vehicle = await Vehicle.findOne({
@@ -274,6 +281,27 @@ class VehicleController {
       vehicleData.vehicle_type_text = vehicleTypeMap[vehicleData.vehicle_type] || '未知';
       vehicleData.vehicle_status_text = vehicleStatusMap[vehicleData.vehicle_status] || '未知';
       vehicleData.images = images;
+
+      // 如果contact_name或phone_number为null，尝试从contact_info中提取
+      if (!vehicleData.contact_name || !vehicleData.phone_number) {
+        if (vehicleData.contact_info) {
+          // 提取联系人姓名（通常在开头）
+           if (!vehicleData.contact_name) {
+             const nameMatch = vehicleData.contact_info.match(/^([^\s]+(?:\s+[^\s]+)*?)(?:\s|電|电|郵|邮|Tel|tel|電話|电话|手機|手机|WhatsApp|微信|:|：)/i);
+             if (nameMatch) {
+               vehicleData.contact_name = nameMatch[1].trim();
+             }
+           }
+           
+           // 提取电话号码（支持多种格式：8位数字、带区号等）
+           if (!vehicleData.phone_number) {
+             const phoneMatch = vehicleData.contact_info.match(/(?:電話|电话|Tel|tel|手機|手机|WhatsApp|微信|Phone|phone)[：:]?\s*([\d\s\-\+\(\)]{8,15})|\b(\d{8})\b/);
+             if (phoneMatch) {
+               vehicleData.phone_number = (phoneMatch[1] || phoneMatch[2]).replace(/[\s\-\(\)]/g, '');
+             }
+           }
+        }
+      }
 
       // 处理手机号脱敏
       if (vehicleData.phone_number) {
@@ -402,7 +430,7 @@ class VehicleController {
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
           'transmission', 'description', 'price', 'current_price', 'original_price',
-          'contact_name', 'phone_number', 'created_at'
+          'contact_name', 'phone_number', 'contact_info', 'created_at'
         ],
         include: [
           {
@@ -418,6 +446,28 @@ class VehicleController {
       // 处理手机号脱敏
       const processedVehicles = vehicles.map(vehicle => {
         const vehicleData = vehicle.toJSON();
+        
+        // 如果contact_name或phone_number为null，尝试从contact_info中提取
+        if (!vehicleData.contact_name || !vehicleData.phone_number) {
+          if (vehicleData.contact_info) {
+            // 提取联系人姓名（通常在开头）
+           if (!vehicleData.contact_name) {
+             const nameMatch = vehicleData.contact_info.match(/^([^\s]+(?:\s+[^\s]+)*?)(?:\s|電|电|郵|邮|Tel|tel|電話|电话|手機|手机|WhatsApp|微信|:|：)/i);
+             if (nameMatch) {
+               vehicleData.contact_name = nameMatch[1].trim();
+             }
+           }
+           
+           // 提取电话号码（支持多种格式：8位数字、带区号等）
+           if (!vehicleData.phone_number) {
+             const phoneMatch = vehicleData.contact_info.match(/(?:電話|电话|Tel|tel|手機|手机|WhatsApp|微信|Phone|phone)[：:]?\s*([\d\s\-\+\(\)]{8,15})|\b(\d{8})\b/);
+             if (phoneMatch) {
+               vehicleData.phone_number = (phoneMatch[1] || phoneMatch[2]).replace(/[\s\-\(\)]/g, '');
+             }
+           }
+          }
+        }
+        
         if (vehicleData.phone_number) {
           vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
         }
@@ -506,7 +556,7 @@ class VehicleController {
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
           'transmission', 'description', 'price', 'current_price', 'original_price',
-          'contact_name', 'phone_number', 'created_at'
+          'contact_name', 'phone_number', 'contact_info', 'created_at'
         ],
         include: [
           {
@@ -522,6 +572,28 @@ class VehicleController {
       // 处理手机号脱敏
       const processedVehicles = vehicles.map(vehicle => {
         const vehicleData = vehicle.toJSON();
+        
+        // 如果contact_name或phone_number为null，尝试从contact_info中提取
+        if (!vehicleData.contact_name || !vehicleData.phone_number) {
+          if (vehicleData.contact_info) {
+            // 提取联系人姓名（通常在开头）
+           if (!vehicleData.contact_name) {
+             const nameMatch = vehicleData.contact_info.match(/^([^\s]+(?:\s+[^\s]+)*?)(?:\s|電|电|郵|邮|Tel|tel|電話|电话|手機|手机|WhatsApp|微信|:|：)/i);
+             if (nameMatch) {
+               vehicleData.contact_name = nameMatch[1].trim();
+             }
+           }
+           
+           // 提取电话号码（支持多种格式：8位数字、带区号等）
+           if (!vehicleData.phone_number) {
+             const phoneMatch = vehicleData.contact_info.match(/(?:電話|电话|Tel|tel|手機|手机|WhatsApp|微信|Phone|phone)[：:]?\s*([\d\s\-\+\(\)]{8,15})|\b(\d{8})\b/);
+             if (phoneMatch) {
+               vehicleData.phone_number = (phoneMatch[1] || phoneMatch[2]).replace(/[\s\-\(\)]/g, '');
+             }
+           }
+          }
+        }
+        
         if (vehicleData.phone_number) {
           vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
         }
