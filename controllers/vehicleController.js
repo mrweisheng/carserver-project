@@ -14,6 +14,7 @@ class VehicleController {
         vehicle_type,
         vehicle_status,
         car_brand,
+        car_model,
         year,
         min_price,
         max_price,
@@ -45,6 +46,20 @@ class VehicleController {
           // 默认模糊匹配：丰田
           where.car_brand = {
             [Op.like]: `%${car_brand}%`
+          };
+        }
+      }
+      
+      if (req.query.car_model) {
+        // 支持精确匹配和模糊匹配
+        if (req.query.car_model.startsWith('exact:')) {
+          // 精确匹配：exact:卡罗拉
+          const exactModel = req.query.car_model.substring(6);
+          where.car_model = exactModel;
+        } else {
+          // 默认模糊匹配：卡罗拉
+          where.car_model = {
+            [Op.like]: `%${req.query.car_model}%`
           };
         }
       }

@@ -1,17 +1,17 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : localhost_3306
+ Source Server         : car
  Source Server Type    : MySQL
- Source Server Version : 80040 (8.0.40)
- Source Host           : localhost:3306
+ Source Server Version : 80042 (8.0.42-0ubuntu0.20.04.1)
+ Source Host           : 103.117.122.192:3306
  Source Schema         : car_info_db
 
  Target Server Type    : MySQL
- Target Server Version : 80040 (8.0.40)
+ Target Server Version : 80042 (8.0.42-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 10/08/2025 15:57:59
+ Date: 14/08/2025 13:07:28
 */
 
 SET NAMES utf8mb4;
@@ -160,7 +160,7 @@ CREATE TABLE `vehicle_images`  (
   INDEX `idx_vehicle_id`(`vehicle_id` ASC) USING BTREE,
   INDEX `idx_image_order`(`image_order` ASC) USING BTREE,
   CONSTRAINT `vehicle_images_ibfk_1` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`vehicle_id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 95358 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆图片表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 95358 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆图片表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for vehicles
@@ -203,9 +203,8 @@ CREATE TABLE `vehicles`  (
   INDEX `idx_current_price`(`current_price` ASC) USING BTREE,
   INDEX `idx_original_price`(`original_price` ASC) USING BTREE,
   INDEX `idx_contact_name`(`contact_name` ASC) USING BTREE,
-  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE,
-  INDEX `idx_extra_fields`((cast(json_unquote(json_extract(`extra_fields`,_utf8mb4\'$.cargo_capacity\')) as char(50) charset utf8mb4)) ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 20748 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆基础信息表' ROW_FORMAT = Dynamic;
+  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 20748 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆基础信息表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- View structure for vehicle_summary
