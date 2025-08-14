@@ -30,6 +30,9 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 配置信任代理（解决express-rate-limit的X-Forwarded-For警告）
+app.set('trust proxy', 1);
+
 // 安全中间件
 app.use(helmet({
   contentSecurityPolicy: {
