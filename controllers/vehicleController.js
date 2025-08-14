@@ -216,6 +216,16 @@ class VehicleController {
 
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
+      
+      // 调试日志
+      console.log('车辆详情请求 - 用户信息:', {
+        hasUser: !!req.user,
+        userId: req.user?.id,
+        username: req.user?.username,
+        isLoggedIn: isLoggedIn,
+        authHeader: req.headers.authorization ? 'Bearer token存在' : '无Authorization头',
+        vehicleId: vehicleId
+      });
 
       // 查询车辆基本信息
       const vehicle = await Vehicle.findOne({
