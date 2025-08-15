@@ -32,6 +32,13 @@ router.get('/featured', optionalAuth, vehicleController.getFeaturedVehicles);
 router.get('/latest', optionalAuth, vehicleController.getLatestVehicles);
 
 /**
+ * @route GET /api/vehicles/special-offers
+ * @desc 获取特价车辆（7座，价格不超过40000，随机10个，日缓存）
+ * @access Public (支持可选身份验证)
+ */
+router.get('/special-offers', optionalAuth, vehicleController.getSpecialOfferVehicles);
+
+/**
  * @route GET /api/vehicles/brands
  * @desc 获取所有汽车品牌列表
  * @access Public

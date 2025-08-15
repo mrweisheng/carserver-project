@@ -2,6 +2,12 @@ const { Vehicle, VehicleImage, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { processPhoneNumber } = require('../utils/phoneMask');
 
+// 特价车辆缓存
+let specialOfferCache = {
+  date: null,
+  data: null
+};
+
 class VehicleController {
   /**
    * 获取车辆列表（基础查询）
@@ -209,6 +215,178 @@ class VehicleController {
       res.status(500).json({
         code: 500,
         message: '获取车辆列表失败',
+        data: null
+      });
+    }
+  }
+
+  /**
+   * 获取特价车辆（7座，价格不超过40000，按年份排序，随机选择10个，日缓存）
+   */
+  async getSpecialOfferVehicles(req, res) {
+    try {
+      // 检查用户登录状态
+      const isLoggedIn = req.user && req.user.id;
+      
+      // 获取当前日期（YYYY-MM-DD格式）
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 检查缓存是否有效
+      if (specialOfferCache.date === today && specialOfferCache.data) {
+        // 处理缓存数据中的手机号脱敏
+        const processedVehicles = specialOfferCache.data.map(vehicle => {
+          const vehicleData = { ...vehicle };
+          if (vehicleData.phone_number) {
+            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+          }
+          return vehicleData;
+        });
+        
+        return res.json({
+          code: 200,
+          message: '查询成功（缓存数据）',
+          data: {
+            vehicles: processedVehicles,
+            cache_date: today,
+            total_count: processedVehicles.length
+          }
+        });
+      }
+      
+      // 构建查询条件：7座，价格不超过40000，2010年或以后
+      const where = {
+        seats: {
+          [Op.like]: '%7%' // 匹配包含7的座位数
+        },
+        current_price: {
+          [Op.and]: [
+            { [Op.lte]: 40000 }, // 不超过40000
+            { [Op.gt]: 0 } // 价格大于0
+          ]
+        },
+        [Op.or]: [
+          {
+            year: {
+              [Op.gte]: '2010' // 年份大于等于2010
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%2010%' // 包含2010的年份字符串
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%201[1-9]%' // 包含2011-2019的年份
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%202[0-9]%' // 包含2020-2029的年份
+            }
+          }
+        ]
+      };
+      
+      // 查询符合条件的车辆，按价格降序（接近40000的排前面），然后按年份降序
+      const vehicles = await Vehicle.findAll({
+        where,
+        order: [
+          ['current_price', 'DESC'], // 价格高的排前面（接近40000）
+          ['year', 'DESC'] // 年份新的排前面
+        ],
+        attributes: [
+          'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
+          'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
+          'transmission', 'description', 'price', 'current_price', 'original_price',
+          'contact_name', 'phone_number', 'contact_info', 'created_at'
+        ],
+        include: [
+          {
+            model: VehicleImage,
+            as: 'images',
+            attributes: ['id', 'image_url', 'image_order'],
+            required: false,
+            order: [['image_order', 'ASC']]
+          }
+        ]
+      });
+      
+      if (vehicles.length === 0) {
+        return res.json({
+          code: 200,
+          message: '暂无符合条件的特价车辆',
+          data: {
+            vehicles: [],
+            cache_date: today,
+            total_count: 0
+          }
+        });
+      }
+      
+      // 先取前20个价格最高的车辆，然后从中随机选择10个
+      const top20Vehicles = vehicles.slice(0, Math.min(20, vehicles.length));
+      const shuffled = top20Vehicles.sort(() => 0.5 - Math.random());
+      const selectedVehicles = shuffled.slice(0, Math.min(10, top20Vehicles.length));
+      
+      // 处理车辆数据（提取联系人信息）
+      const processedVehicles = selectedVehicles.map(vehicle => {
+        const vehicleData = vehicle.toJSON();
+        
+        // 如果contact_name或phone_number为null，尝试从contact_info中提取
+        if (!vehicleData.contact_name || !vehicleData.phone_number) {
+          if (vehicleData.contact_info) {
+            // 提取联系人姓名
+            if (!vehicleData.contact_name) {
+              const nameMatch = vehicleData.contact_info.match(/^([^\s]+(?:\s+[^\s]+)*?)(?:\s|電|电|郵|邮|Tel|tel|電話|电话|手機|手机|WhatsApp|微信|:|：)/i);
+              if (nameMatch) {
+                vehicleData.contact_name = nameMatch[1].trim();
+              }
+            }
+            
+            // 提取电话号码
+            if (!vehicleData.phone_number) {
+              const phoneMatch = vehicleData.contact_info.match(/(?:電話|电话|Tel|tel|手機|手机|WhatsApp|微信|Phone|phone)[：:]?\s*([\d\s\-\+\(\)]{8,15})|\b(\d{8})\b/);
+              if (phoneMatch) {
+                vehicleData.phone_number = (phoneMatch[1] || phoneMatch[2]).replace(/[\s\-\(\)]/g, '');
+              }
+            }
+          }
+        }
+        
+        return vehicleData;
+      });
+      
+      // 更新缓存（存储原始数据，不包含脱敏处理）
+      specialOfferCache = {
+        date: today,
+        data: processedVehicles
+      };
+      
+      // 处理手机号脱敏后返回
+      const finalVehicles = processedVehicles.map(vehicle => {
+        const vehicleData = { ...vehicle };
+        if (vehicleData.phone_number) {
+          vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+        }
+        return vehicleData;
+      });
+      
+      res.json({
+        code: 200,
+        message: '查询成功',
+        data: {
+          vehicles: finalVehicles,
+          cache_date: today,
+          total_count: finalVehicles.length
+        }
+      });
+      
+    } catch (error) {
+      console.error('获取特价车辆失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: '获取特价车辆失败',
         data: null
       });
     }
