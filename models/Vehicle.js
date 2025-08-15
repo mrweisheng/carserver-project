@@ -125,6 +125,12 @@ const Vehicle = sequelize.define('Vehicle', {
     type: DataTypes.STRING(20),
     allowNull: true,
     comment: '联系电话'
+  },
+  is_special_offer: {
+    type: DataTypes.TINYINT,
+    allowNull: false,
+    defaultValue: 0,
+    comment: '是否特价车辆：1=是, 0=否'
   }
 }, {
   tableName: 'vehicles',

@@ -150,7 +150,6 @@ app.listen(PORT, async () => {
   // 同步数据库
   try {
     await syncDatabase();
-    console.log('数据库同步完成');
   } catch (error) {
     console.error('数据库同步失败:', error);
   }

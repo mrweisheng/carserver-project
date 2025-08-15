@@ -11,7 +11,7 @@
  Target Server Version : 80042 (8.0.42-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 14/08/2025 13:07:28
+ Date: 15/08/2025 22:05:44
 */
 
 SET NAMES utf8mb4;
@@ -143,7 +143,7 @@ CREATE TABLE `users`  (
   INDEX `idx_gender`(`gender` ASC) USING BTREE,
   INDEX `idx_region`(`region` ASC) USING BTREE,
   INDEX `idx_ip_address`(`ip_address` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for vehicle_images
@@ -193,6 +193,7 @@ CREATE TABLE `vehicles`  (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `contact_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '联系人姓名',
   `phone_number` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '联系电话',
+  `is_special_offer` tinyint NOT NULL DEFAULT 0 COMMENT '是否特价车辆：1=是, 0=否',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_vehicle_id`(`vehicle_id` ASC) USING BTREE,
   INDEX `idx_vehicle_id`(`vehicle_id` ASC) USING BTREE,
@@ -203,7 +204,8 @@ CREATE TABLE `vehicles`  (
   INDEX `idx_current_price`(`current_price` ASC) USING BTREE,
   INDEX `idx_original_price`(`original_price` ASC) USING BTREE,
   INDEX `idx_contact_name`(`contact_name` ASC) USING BTREE,
-  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE
+  INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE,
+  INDEX `idx_is_special_offer`(`is_special_offer` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 20748 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆基础信息表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------

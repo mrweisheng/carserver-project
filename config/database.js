@@ -13,8 +13,14 @@ const sequelize = new Sequelize(
     pool: {
       max: 10,
       min: 2,
-      acquire: 60000,
+      acquire: 120000,  // 增加到2分钟
       idle: 10000
+    },
+    dialectOptions: {
+      connectTimeout: 120000,  // 连接超时2分钟
+    },
+    retry: {
+      max: 3  // 最大重试3次
     },
     timezone: '+08:00'
   }
