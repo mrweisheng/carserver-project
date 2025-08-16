@@ -4,10 +4,11 @@ const { processPhoneNumber } = require('../utils/phoneMask');
 const { batchExtractContactInfo } = require('../utils/contactExtractor');
 
 // 缓存对象 - 服务重启时自动清空
+// 全局缓存变量
 let specialOfferCache = {
   date: null,
   data: null,
-  serverStartTime: new Date().toISOString().split('T')[0] // 记录服务启动日期
+  serverStartTime: Date.now() // 记录真实的服务启动时间戳
 };
 
 class VehicleController {
@@ -233,11 +234,18 @@ class VehicleController {
       // 获取当前日期（YYYY-MM-DD格式）
       const today = new Date().toISOString().split('T')[0];
       
-      // 检查缓存是否有效（服务重启后自动失效）
-      if (specialOfferCache.date === today && specialOfferCache.data && specialOfferCache.serverStartTime === today) {
+      // 检查缓存是否有效（同一天且服务未重启）
+      if (specialOfferCache.date === today && specialOfferCache.data) {
         // 处理缓存数据中的手机号脱敏
         const processedVehicles = specialOfferCache.data.map(vehicle => {
           const vehicleData = { ...vehicle };
+          // 确保字段映射
+          if (vehicleData.car_brand && !vehicleData.brand) {
+            vehicleData.brand = vehicleData.car_brand;
+          }
+          if (vehicleData.car_model && !vehicleData.model) {
+            vehicleData.model = vehicleData.car_model;
+          }
           // 确保缓存数据中的is_special_offer为1
           vehicleData.is_special_offer = 1;
           if (vehicleData.phone_number) {
@@ -343,46 +351,67 @@ class VehicleController {
         { where: {} }
       );
       
-      // 按品牌分组所有符合条件的车辆，确保品牌多样性
+      // 使用日期作为随机种子，确保每天结果稳定但不同
+       const dateBasedSeed = new Date(today + 'T00:00:00').getTime();
+       
+       // 简单的伪随机数生成器（基于日期种子）
+       function seededRandom(seed) {
+         const x = Math.sin(seed) * 10000;
+         return x - Math.floor(x);
+       }
+       
+       // 基于种子的数组洗牌函数
+       function seededShuffle(array, seed) {
+         const shuffled = [...array];
+         for (let i = shuffled.length - 1; i > 0; i--) {
+           const j = Math.floor(seededRandom(seed + i) * (i + 1));
+           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+         }
+         return shuffled;
+       }
+       
+       // 按品牌分组所有符合条件的车辆，确保品牌多样性
        const vehiclesByBrand = {};
        vehicles.forEach(vehicle => {
-         const brand = vehicle.car_brand;
+         const brand = vehicle.car_brand; // 使用数据库中的实际字段名
          if (!vehiclesByBrand[brand]) {
            vehiclesByBrand[brand] = [];
          }
          vehiclesByBrand[brand].push(vehicle);
        });
       
-      // 从每个品牌中选择车辆，确保品牌分布均匀
+       // 从每个品牌中选择车辆，确保品牌分布均匀
        let selectedVehicles = [];
        const brands = Object.keys(vehiclesByBrand);
        
-       // 优先确保品牌多样性：每个品牌至少选1辆（如果有的话）
-       const minPerBrand = 1;
-       const remainingSlots = 10;
+       // 使用日期种子打乱品牌顺序，确保每天品牌选择顺序不同
+       const shuffledBrands = seededShuffle(brands, dateBasedSeed);
        
        // 第一轮：每个品牌选择1辆，确保品牌多样性
-       brands.forEach(brand => {
+       shuffledBrands.forEach((brand, index) => {
          const brandVehicles = vehiclesByBrand[brand];
          if (brandVehicles.length > 0 && selectedVehicles.length < 10) {
-           const shuffled = brandVehicles.sort(() => 0.5 - Math.random());
+           const shuffled = seededShuffle(brandVehicles, dateBasedSeed + index * 100);
            selectedVehicles.push(shuffled[0]);
          }
        });
        
        // 第二轮：从剩余车辆中补充到10辆
-        if (selectedVehicles.length < 10) {
-          const remaining = vehicles.filter(v => !selectedVehicles.find(s => s.id === v.id));
-          const shuffled = remaining.sort(() => 0.5 - Math.random());
-          const needed = 10 - selectedVehicles.length;
-          selectedVehicles.push(...shuffled.slice(0, needed));
-        }
+       if (selectedVehicles.length < 10) {
+         const remaining = vehicles.filter(v => !selectedVehicles.find(s => s.id === v.id));
+         const shuffled = seededShuffle(remaining, dateBasedSeed + 1000);
+         const needed = 10 - selectedVehicles.length;
+         selectedVehicles.push(...shuffled.slice(0, needed));
+       }
        
        // 确保最终只有10辆车
        selectedVehicles = selectedVehicles.slice(0, 10);
        
-       // 最终随机打乱顺序
-       selectedVehicles = selectedVehicles.sort(() => 0.5 - Math.random());
+       // 最终基于日期种子打乱顺序
+       selectedVehicles = seededShuffle(selectedVehicles, dateBasedSeed + 2000);
+       
+       // 移除重复检测逻辑，确保每天结果固定
+       // 注释：每天的特价车辆应该是固定的，不需要避免重复
       
       // 标记选中的车辆为特价车辆
       if (selectedVehicles.length > 0) {
@@ -396,6 +425,10 @@ class VehicleController {
       // 处理车辆数据（提取联系人信息）
       const processedVehicles = selectedVehicles.map(vehicle => {
         const vehicleData = vehicle.toJSON();
+        
+        // 映射字段名称以保持API一致性
+        vehicleData.brand = vehicleData.car_brand;
+        vehicleData.model = vehicleData.car_model;
         
         // 更新is_special_offer字段为1（因为这些车辆已被选为特价车辆）
         vehicleData.is_special_offer = 1;
@@ -428,7 +461,7 @@ class VehicleController {
       specialOfferCache = {
         date: today,
         data: processedVehicles,
-        serverStartTime: today
+        serverStartTime: specialOfferCache.serverStartTime
       };
       
       // 处理手机号脱敏后返回
