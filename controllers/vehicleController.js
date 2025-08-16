@@ -837,7 +837,7 @@ class VehicleController {
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
           'transmission', 'description', 'price', 'current_price', 'original_price',
-          'contact_name', 'phone_number', 'contact_info', 'created_at'
+          'contact_name', 'phone_number', 'contact_info', 'is_special_offer', 'created_at'
         ],
         include: [
           {
