@@ -80,6 +80,8 @@ npm start
 
 ## 📊 API接口
 
+详细的API文档请查看 [docs/API.md](./docs/API.md)
+
 ### 用户认证
 - `POST /api/auth/register` - 用户注册
 - `POST /api/auth/login` - 用户登录
@@ -119,21 +121,28 @@ CRAWLER_STRICT_IP_LIMIT=false
 ```
 
 ### 反爬虫策略配置
-详细的配置说明请参考 `CONFIG_GUIDE.md` 文件。
+详细的配置说明请参考 [docs/CONFIG_GUIDE.md](./docs/CONFIG_GUIDE.md) 文件。
 
 ## 📁 项目结构
 
 ```
 carserver/
-├── config/           # 配置文件
-├── controllers/      # 控制器
-├── middleware/       # 中间件
-├── models/          # 数据模型
-├── routes/          # 路由定义
-├── utils/           # 工具函数
-├── app.js           # 应用入口
-├── package.json     # 项目配置
-└── README.md        # 项目说明
+├── docs/            # 📚 项目文档
+│   ├── API.md       # API接口文档
+│   ├── DEPLOYMENT_GUIDE.md  # 部署指南
+│   ├── CONFIG_GUIDE.md      # 配置指南
+│   ├── CONTRIBUTING.md      # 贡献指南
+│   ├── CHANGELOG.md         # 更新日志
+│   └── ANTI_CRAWLER_STRATEGY.md # 反爬虫策略
+├── config/          # 配置文件
+├── controllers/     # 控制器
+├── middleware/      # 中间件
+├── models/         # 数据模型
+├── routes/         # 路由定义
+├── utils/          # 工具函数
+├── app.js          # 应用入口
+├── package.json    # 项目配置
+└── README.md       # 项目说明
 ```
 
 ## 🧪 测试
@@ -194,6 +203,9 @@ Authorization: Bearer <your_jwt_token>
 
 ## 🤝 贡献指南
 
+详细的贡献指南请查看 [docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md)
+
+### 快速开始
 1. Fork 项目
 2. 创建功能分支
 3. 提交更改
@@ -203,6 +215,14 @@ Authorization: Bearer <your_jwt_token>
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 📚 更多文档
+
+- **[完整文档目录](./docs/README.md)** - 查看所有项目文档
+- **[API文档](./docs/API.md)** - 详细的接口说明
+- **[部署指南](./docs/DEPLOYMENT_GUIDE.md)** - 部署和配置说明
+- **[贡献指南](./docs/CONTRIBUTING.md)** - 参与项目开发
+- **[更新日志](./docs/CHANGELOG.md)** - 版本变更记录
 
 ## 📞 联系方式
 
