@@ -1,4 +1,5 @@
 const VisitorController = require('../controllers/visitorController');
+const { getClientIP } = require('../utils/ipUtils');
 
 /**
  * 访客统计中间件
@@ -8,14 +9,8 @@ const visitorStatsMiddleware = async (req, res, next) => {
   // 记录请求开始时间
   const startTime = Date.now();
   
-  // 获取访客IP地址
-  const ipAddress = req.ip || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress ||
-                   (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-                   req.headers['x-forwarded-for']?.split(',')[0] ||
-                   req.headers['x-real-ip'] ||
-                   'unknown';
+  // 获取访客IP地址（使用清理后的IP）
+  const ipAddress = getClientIP(req);
   
   // 获取用户代理信息
   const userAgent = req.get('User-Agent') || '';
@@ -61,14 +56,8 @@ const visitorStatsMiddleware = async (req, res, next) => {
 const detailedVisitorStatsMiddleware = async (req, res, next) => {
   const startTime = Date.now();
   
-  // 获取访客信息
-  const ipAddress = req.ip || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress ||
-                   (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-                   req.headers['x-forwarded-for']?.split(',')[0] ||
-                   req.headers['x-real-ip'] ||
-                   'unknown';
+  // 获取访客信息（使用清理后的IP）
+  const ipAddress = getClientIP(req);
   
   const userAgent = req.get('User-Agent') || '';
   const referer = req.get('Referer') || '';
@@ -124,13 +113,8 @@ const conditionalVisitorStatsMiddleware = (options = {}) => {
       return next();
     }
     
-    const ipAddress = req.ip || 
-                     req.connection.remoteAddress || 
-                     req.socket.remoteAddress ||
-                     (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-                     req.headers['x-forwarded-for']?.split(',')[0] ||
-                     req.headers['x-real-ip'] ||
-                     'unknown';
+    // 获取访客IP地址（使用清理后的IP）
+    const ipAddress = getClientIP(req);
     
     const userAgent = req.get('User-Agent') || '';
     

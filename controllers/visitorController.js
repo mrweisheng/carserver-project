@@ -1,5 +1,6 @@
 const DailyVisitor = require('../models/DailyVisitor');
 const { Op } = require('sequelize');
+const { getRegionByIP } = require('../utils/ipUtils');
 
 class VisitorController {
   /**
@@ -34,14 +35,22 @@ class VisitorController {
           message: '访客记录已更新'
         };
       } else {
-        // 如果是新访客，创建新记录
+        // 如果是新访客，获取地理位置信息并创建新记录
+        const locationInfo = await getRegionByIP(ipAddress);
+        
         const newRecord = await DailyVisitor.create({
           ip_address: ipAddress,
           visit_date: today,
           request_count: 1,
           first_visit_time: new Date(),
           last_visit_time: new Date(),
-          user_agent: userAgent
+          user_agent: userAgent,
+          country: locationInfo.country,
+          region: locationInfo.region,
+          city: locationInfo.city,
+          isp: locationInfo.isp,
+          timezone: locationInfo.timezone,
+          location_updated_at: new Date()
         });
         
         return {

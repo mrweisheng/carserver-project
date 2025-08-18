@@ -3,6 +3,7 @@ const User = require('./User');
 const Vehicle = require('./Vehicle');
 const VehicleImage = require('./VehicleImage');
 const DailyVisitor = require('./DailyVisitor');
+const IPLocationCache = require('./IPLocationCache');
 
 // 定义模型关联关系
 Vehicle.hasMany(VehicleImage, {
@@ -36,5 +37,6 @@ module.exports = {
   Vehicle,
   VehicleImage,
   DailyVisitor,
+  IPLocationCache,
   syncDatabase
 };

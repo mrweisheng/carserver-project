@@ -66,7 +66,7 @@ const register = async (req, res) => {
 
     // 获取客户端IP和地区信息
     const clientIP = getClientIP(req);
-    const regionInfo = await getRegionByIP(clientIP);
+    const regionInfo = await getRegionByIP(clientIP, { User });
 
     // 创建用户
     const user = await User.create({
@@ -77,7 +77,12 @@ const register = async (req, res) => {
       gender,
       phone,
       region: regionInfo.region,
+      country: regionInfo.country,
+      city: regionInfo.city,
+      isp: regionInfo.isp,
+      timezone: regionInfo.timezone,
       ip_address: clientIP,
+      location_updated_at: new Date(),
       status: 1, // 正常状态
       role: 1 // 普通用户
     });
@@ -171,9 +176,16 @@ const login = async (req, res) => {
 
     // 更新最后登录时间和IP
     const clientIP = getClientIP(req);
+    const regionInfo = await getRegionByIP(clientIP, { User });
+    
     await user.update({
       last_login_at: new Date(),
-      last_login_ip: clientIP
+      last_login_ip: clientIP,
+      country: regionInfo.country,
+      city: regionInfo.city,
+      isp: regionInfo.isp,
+      timezone: regionInfo.timezone,
+      location_updated_at: new Date()
     });
 
     // 生成JWT token
