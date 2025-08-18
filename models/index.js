@@ -2,6 +2,7 @@ const sequelize = require('../config/database');
 const User = require('./User');
 const Vehicle = require('./Vehicle');
 const VehicleImage = require('./VehicleImage');
+const DailyVisitor = require('./DailyVisitor');
 
 // 定义模型关联关系
 Vehicle.hasMany(VehicleImage, {
@@ -34,5 +35,6 @@ module.exports = {
   User,
   Vehicle,
   VehicleImage,
+  DailyVisitor,
   syncDatabase
 };

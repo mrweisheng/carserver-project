@@ -27,6 +27,9 @@ const {
   intelligentAntiCrawler
 } = require('./middleware/antiCrawler');
 
+// 导入访客统计中间件
+const { visitorStatsMiddleware } = require('./middleware/visitorStats');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -65,16 +68,21 @@ app.use(detectCrawler);               // 爬虫检测
 app.use(intelligentAntiCrawler);      // 智能反爬虫
 app.use(dynamicDelay);                // 动态延迟
 
+// 访客统计中间件（在所有路由之前，但在反爬虫之后）
+app.use(visitorStatsMiddleware);
+
 // 全局频率限制
 app.use(basicRateLimit);
 
 // 路由
 const authRoutes = require('./routes/auth');
 const vehicleRoutes = require('./routes/vehicles');
+const visitorRoutes = require('./routes/visitors');
 
 // 使用路由
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
+app.use('/api/visitors', visitorRoutes);
 
 // 根路由
 app.get('/', (req, res) => {
@@ -89,6 +97,12 @@ app.get('/', (req, res) => {
         login: 'POST /api/auth/login',
         me: 'GET /api/auth/me',
         logout: 'POST /api/auth/logout'
+      },
+      visitors: {
+        stats: 'GET /api/visitors/stats',
+        today: 'GET /api/visitors/today',
+        details: 'GET /api/visitors/details',
+        record: 'POST /api/visitors/record'
       }
     }
   });

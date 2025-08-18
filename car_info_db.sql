@@ -11,11 +11,32 @@
  Target Server Version : 80042 (8.0.42-0ubuntu0.20.04.1)
  File Encoding         : 65001
 
- Date: 15/08/2025 22:05:44
+ Date: 18/08/2025 13:47:03
 */
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------
+-- Table structure for daily_visitors
+-- ----------------------------
+DROP TABLE IF EXISTS `daily_visitors`;
+CREATE TABLE `daily_visitors`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID（自增主键）',
+  `ip_address` varchar(45) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '访客IP地址',
+  `visit_date` date NOT NULL COMMENT '访问日期（年月日）',
+  `request_count` int NOT NULL DEFAULT 1 COMMENT '当日请求次数',
+  `first_visit_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次访问时间',
+  `last_visit_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后访问时间',
+  `user_agent` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '用户代理信息',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_ip_date`(`ip_address` ASC, `visit_date` ASC) USING BTREE COMMENT 'IP地址和日期的唯一索引',
+  INDEX `idx_visit_date`(`visit_date` ASC) USING BTREE COMMENT '访问日期索引',
+  INDEX `idx_ip_address`(`ip_address` ASC) USING BTREE COMMENT 'IP地址索引',
+  INDEX `idx_request_count`(`request_count` ASC) USING BTREE COMMENT '请求次数索引'
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '每日访客统计表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for user_browsing_history
@@ -207,6 +228,12 @@ CREATE TABLE `vehicles`  (
   INDEX `idx_phone_number`(`phone_number` ASC) USING BTREE,
   INDEX `idx_is_special_offer`(`is_special_offer` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 20748 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '车辆基础信息表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- View structure for daily_visitor_summary
+-- ----------------------------
+DROP VIEW IF EXISTS `daily_visitor_summary`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `daily_visitor_summary` AS select `daily_visitors`.`visit_date` AS `date`,count(0) AS `unique_visitors`,sum(`daily_visitors`.`request_count`) AS `total_requests`,avg(`daily_visitors`.`request_count`) AS `avg_requests_per_visitor`,min(`daily_visitors`.`first_visit_time`) AS `first_visit_of_day`,max(`daily_visitors`.`last_visit_time`) AS `last_visit_of_day` from `daily_visitors` group by `daily_visitors`.`visit_date` order by `daily_visitors`.`visit_date` desc;
 
 -- ----------------------------
 -- View structure for vehicle_summary
