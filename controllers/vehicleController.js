@@ -4,11 +4,25 @@ const { processPhoneNumber } = require('../utils/phoneMask');
 const { batchExtractContactInfo } = require('../utils/contactExtractor');
 
 // 缓存对象 - 服务重启时自动清空
-// 全局缓存变量
+// 特价车辆缓存
 let specialOfferCache = {
   date: null,
   data: null,
   serverStartTime: Date.now() // 记录真实的服务启动时间戳
+};
+
+// 精选车辆缓存（日级缓存）
+let featuredVehiclesCache = {
+  date: null,
+  data: null,
+  serverStartTime: Date.now()
+};
+
+// 最新车辆缓存（小时级缓存）
+let latestVehiclesCache = {
+  hour: null,
+  data: null,
+  serverStartTime: Date.now()
 };
 
 class VehicleController {
@@ -795,12 +809,36 @@ class VehicleController {
   }
 
   /**
-   * 获取精选车辆
+   * 获取精选车辆（日级缓存）
    */
   async getFeaturedVehicles(req, res) {
     try {
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
+      
+      // 获取当前日期（YYYY-MM-DD格式）
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 检查缓存是否有效（同一天且服务未重启）
+      if (featuredVehiclesCache.date === today && featuredVehiclesCache.data) {
+        // 处理缓存数据中的手机号脱敏
+        const processedVehicles = featuredVehiclesCache.data.map(vehicle => {
+          const vehicleData = { ...vehicle };
+          if (vehicleData.phone_number) {
+            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+          }
+          return vehicleData;
+        });
+        
+        return res.json({
+          code: 200,
+          message: '获取精选车辆成功（缓存数据）',
+          data: {
+            vehicles: processedVehicles,
+            total_count: processedVehicles.length
+          }
+        });
+      }
 
       // 构建查询条件
       const where = {
@@ -825,32 +863,30 @@ class VehicleController {
         }
       };
 
-      // 先获取符合条件的总数
-      const totalCount = await Vehicle.count({ where });
+      // 使用日期作为随机种子，确保每天结果稳定但不同
+      const dateBasedSeed = new Date(today + 'T00:00:00').getTime();
       
-      // 如果没有符合条件的车辆，直接返回
-      if (totalCount === 0) {
-        return res.json({
-          code: 200,
-          message: '获取精选车辆成功',
-          data: {
-            vehicles: [],
-            total_count: 0
-          }
-        });
+      // 简单的伪随机数生成器（基于日期种子）
+      function seededRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+      }
+      
+      // 基于种子的数组洗牌函数
+      function seededShuffle(array, seed) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(seededRandom(seed + i) * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
       }
 
-      // 计算随机偏移量，确保能获取到6条记录
-      const limit = 6;
-      const maxOffset = Math.max(0, totalCount - limit);
-      const randomOffset = Math.floor(Math.random() * (maxOffset + 1));
-
-      // 执行优化后的查询
+      // 查询更多车辆然后随机选择，避免COUNT查询
       const vehicles = await Vehicle.findAll({
         where,
-        order: [['id', 'ASC']], // 使用固定排序提高性能
-        offset: randomOffset,
-        limit,
+        order: [['current_price', 'DESC'], ['year', 'DESC']], // 价格和年份排序
+        limit: 50, // 查询50辆然后随机选择6辆
         attributes: [
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
@@ -868,13 +904,36 @@ class VehicleController {
         ]
       });
 
-      // 批量提取联系信息并处理手机号脱敏
-      const extractedVehicles = batchExtractContactInfo(vehicles);
+      // 如果没有符合条件的车辆，直接返回
+      if (vehicles.length === 0) {
+        return res.json({
+          code: 200,
+          message: '暂无符合条件的精选车辆',
+          data: {
+            vehicles: [],
+            total_count: 0
+          }
+        });
+      }
+
+      // 使用种子随机选择6辆车
+      const shuffledVehicles = seededShuffle(vehicles, dateBasedSeed);
+      const selectedVehicles = shuffledVehicles.slice(0, 6);
+
+      // 批量提取联系信息
+      const extractedVehicles = batchExtractContactInfo(selectedVehicles);
+      
+      // 更新缓存（存储原始数据，不包含脱敏手机号）
+      featuredVehiclesCache.date = today;
+      featuredVehiclesCache.data = extractedVehicles;
+      
+      // 处理手机号脱敏
       const processedVehicles = extractedVehicles.map(vehicleData => {
-        if (vehicleData.phone_number) {
-          vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+        const result = { ...vehicleData };
+        if (result.phone_number) {
+          result.phone_number = processPhoneNumber(result.phone_number, isLoggedIn);
         }
-        return vehicleData;
+        return result;
       });
 
       res.json({
@@ -897,12 +956,37 @@ class VehicleController {
   }
 
   /**
-   * 获取最新上架车辆
+   * 获取最新上架车辆（小时级缓存）
    */
   async getLatestVehicles(req, res) {
     try {
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
+      
+      // 获取当前小时（YYYY-MM-DD-HH格式）
+      const now = new Date();
+      const currentHour = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}`;
+      
+      // 检查缓存是否有效（同一小时且服务未重启）
+      if (latestVehiclesCache.hour === currentHour && latestVehiclesCache.data) {
+        // 处理缓存数据中的手机号脱敏
+        const processedVehicles = latestVehiclesCache.data.map(vehicle => {
+          const vehicleData = { ...vehicle };
+          if (vehicleData.phone_number) {
+            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+          }
+          return vehicleData;
+        });
+        
+        return res.json({
+          code: 200,
+          message: '获取最新上架车辆成功（缓存数据）',
+          data: {
+            vehicles: processedVehicles,
+            total_count: processedVehicles.length
+          }
+        });
+      }
 
       // 直接计算30天前的时间，无需额外查询
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -932,32 +1016,30 @@ class VehicleController {
         }
       };
 
-      // 先获取符合条件的总数
-      const totalCount = await Vehicle.count({ where });
+      // 使用小时作为随机种子，确保每小时结果稳定但不同
+      const hourBasedSeed = new Date(currentHour.replace(/-/g, '/') + ':00:00').getTime();
       
-      // 如果没有符合条件的车辆，直接返回
-      if (totalCount === 0) {
-        return res.json({
-          code: 200,
-          message: '暂无最新上架车辆',
-          data: {
-            vehicles: [],
-            total_count: 0
-          }
-        });
+      // 简单的伪随机数生成器（基于小时种子）
+      function seededRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+      }
+      
+      // 基于种子的数组洗牌函数
+      function seededShuffle(array, seed) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(seededRandom(seed + i) * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
       }
 
-      // 计算随机偏移量，确保能获取到6条记录
-      const limit = 6;
-      const maxOffset = Math.max(0, totalCount - limit);
-      const randomOffset = Math.floor(Math.random() * (maxOffset + 1));
-
-      // 执行优化后的查询
+      // 查询更多车辆然后随机选择，避免COUNT查询
       const vehicles = await Vehicle.findAll({
         where,
-        order: [['created_at', 'DESC']], // 按创建时间倒序，显示最新的
-        offset: randomOffset,
-        limit,
+        order: [['created_at', 'DESC'], ['current_price', 'DESC']], // 按创建时间和价格排序
+        limit: 50, // 查询50辆然后随机选择6辆
         attributes: [
           'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
           'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
@@ -975,13 +1057,36 @@ class VehicleController {
         ]
       });
 
-      // 批量提取联系信息并处理手机号脱敏
-      const extractedVehicles = batchExtractContactInfo(vehicles);
+      // 如果没有符合条件的车辆，直接返回
+      if (vehicles.length === 0) {
+        return res.json({
+          code: 200,
+          message: '暂无最新上架车辆',
+          data: {
+            vehicles: [],
+            total_count: 0
+          }
+        });
+      }
+
+      // 使用种子随机选择6辆车
+      const shuffledVehicles = seededShuffle(vehicles, hourBasedSeed);
+      const selectedVehicles = shuffledVehicles.slice(0, 6);
+
+      // 批量提取联系信息
+      const extractedVehicles = batchExtractContactInfo(selectedVehicles);
+      
+      // 更新缓存（存储原始数据，不包含脱敏手机号）
+      latestVehiclesCache.hour = currentHour;
+      latestVehiclesCache.data = extractedVehicles;
+      
+      // 处理手机号脱敏
       const processedVehicles = extractedVehicles.map(vehicleData => {
-        if (vehicleData.phone_number) {
-          vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
+        const result = { ...vehicleData };
+        if (result.phone_number) {
+          result.phone_number = processPhoneNumber(result.phone_number, isLoggedIn);
         }
-        return vehicleData;
+        return result;
       });
 
       res.json({
