@@ -33,7 +33,7 @@ router.get('/latest', optionalAuth, vehicleController.getLatestVehicles);
 
 /**
  * @route GET /api/vehicles/special-offers
- * @desc 获取特价车辆（7座，价格不超过40000，随机10个，日缓存）
+ * @desc 获取特价车辆（豪华品牌10辆 + 7座丰田/本田5辆，价格≤40000，每日更新）
  * @access Public (支持可选身份验证)
  */
 router.get('/special-offers', optionalAuth, vehicleController.getSpecialOfferVehicles);

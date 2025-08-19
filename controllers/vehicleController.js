@@ -224,7 +224,7 @@ class VehicleController {
   }
 
   /**
-   * 获取特价车辆（7座，价格不超过40000，按年份排序，随机选择10个，日缓存）
+   * 获取特价车辆（豪华品牌10辆 + 7座丰田/本田5辆，价格≤40000，每日更新）
    */
   async getSpecialOfferVehicles(req, res) {
     try {
@@ -413,17 +413,130 @@ class VehicleController {
        // 移除重复检测逻辑，确保每天结果固定
        // 注释：每天的特价车辆应该是固定的，不需要避免重复
       
+      // 查询7座丰田/本田车辆（新增功能）
+      const sevenSeaterBrands = ['豐田 TOYOTA', '本田 HONDA'];
+      const sevenSeaterWhere = {
+        car_brand: {
+          [Op.in]: sevenSeaterBrands
+        },
+        seats: {
+          [Op.or]: [
+            { [Op.eq]: '7' },
+            { [Op.eq]: '7座' },
+            { [Op.like]: '%7座%' },
+            { [Op.like]: '%7 座%' }
+          ]
+        },
+        current_price: {
+          [Op.and]: [
+            { [Op.lte]: 40000 }, // 不超过40000
+            { [Op.gt]: 0 } // 价格大于0
+          ]
+        },
+        [Op.or]: [
+          {
+            year: {
+              [Op.gte]: '2010' // 年份大于等于2010
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%2010%' // 包含2010的年份字符串
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%201[1-9]%' // 包含2011-2019的年份
+            }
+          },
+          {
+            year: {
+              [Op.like]: '%202[0-9]%' // 包含2020-2029的年份
+            }
+          }
+        ]
+      };
+      
+      // 查询7座车辆，按价格降序（接近40000的排前面），然后按年份降序
+      const sevenSeaterVehicles = await Vehicle.findAll({
+        where: sevenSeaterWhere,
+        order: [
+          ['current_price', 'DESC'], // 价格高的排前面（接近40000）
+          ['year', 'DESC'] // 年份新的排前面
+        ],
+        attributes: [
+          'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
+          'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
+          'transmission', 'description', 'price', 'current_price', 'original_price',
+          'contact_name', 'phone_number', 'contact_info', 'is_special_offer', 'created_at'
+        ],
+        include: [
+          {
+            model: VehicleImage,
+            as: 'images',
+            attributes: ['id', 'image_url', 'image_order'],
+            required: false,
+            order: [['image_order', 'ASC']]
+          }
+        ]
+      });
+      
+      // 从7座车辆中选择5辆（使用相同的日期种子逻辑）
+      let selectedSevenSeaters = [];
+      if (sevenSeaterVehicles.length > 0) {
+        // 按品牌分组7座车辆
+        const sevenSeatersByBrand = {};
+        sevenSeaterVehicles.forEach(vehicle => {
+          const brand = vehicle.car_brand;
+          if (!sevenSeatersByBrand[brand]) {
+            sevenSeatersByBrand[brand] = [];
+          }
+          sevenSeatersByBrand[brand].push(vehicle);
+        });
+        
+        const sevenSeaterBrandList = Object.keys(sevenSeatersByBrand);
+        const shuffledSevenSeaterBrands = seededShuffle(sevenSeaterBrandList, dateBasedSeed + 3000);
+        
+        // 第一轮：每个品牌选择车辆，确保品牌多样性
+        shuffledSevenSeaterBrands.forEach((brand, index) => {
+          const brandVehicles = sevenSeatersByBrand[brand];
+          if (brandVehicles.length > 0 && selectedSevenSeaters.length < 5) {
+            const shuffled = seededShuffle(brandVehicles, dateBasedSeed + 3000 + index * 100);
+            // 从该品牌选择多辆车（如果需要）
+            const needed = Math.min(5 - selectedSevenSeaters.length, Math.ceil(5 / sevenSeaterBrandList.length));
+            selectedSevenSeaters.push(...shuffled.slice(0, needed));
+          }
+        });
+        
+        // 第二轮：从剩余7座车辆中补充到5辆
+        if (selectedSevenSeaters.length < 5) {
+          const remainingSevenSeaters = sevenSeaterVehicles.filter(v => !selectedSevenSeaters.find(s => s.id === v.id));
+          const shuffled = seededShuffle(remainingSevenSeaters, dateBasedSeed + 4000);
+          const needed = 5 - selectedSevenSeaters.length;
+          selectedSevenSeaters.push(...shuffled.slice(0, needed));
+        }
+        
+        // 确保最终只有5辆7座车
+        selectedSevenSeaters = selectedSevenSeaters.slice(0, 5);
+        
+        // 最终基于日期种子打乱7座车辆顺序
+        selectedSevenSeaters = seededShuffle(selectedSevenSeaters, dateBasedSeed + 5000);
+      }
+      
+      // 合并所有选中的车辆（10辆特价车 + 5辆7座车）
+      const allSelectedVehicles = [...selectedVehicles, ...selectedSevenSeaters];
+      
       // 标记选中的车辆为特价车辆
-      if (selectedVehicles.length > 0) {
-        const selectedIds = selectedVehicles.map(v => v.id);
+      if (allSelectedVehicles.length > 0) {
+        const selectedIds = allSelectedVehicles.map(v => v.id);
         await Vehicle.update(
           { is_special_offer: 1 },
           { where: { id: { [Op.in]: selectedIds } } }
         );
       }
       
-      // 处理车辆数据（提取联系人信息）
-      const processedVehicles = selectedVehicles.map(vehicle => {
+      // 处理车辆数据（提取联系人信息）- 包含豪华车和7座车
+      const processedVehicles = allSelectedVehicles.map(vehicle => {
         const vehicleData = vehicle.toJSON();
         
         // 映射字段名称以保持API一致性
@@ -479,7 +592,9 @@ class VehicleController {
         data: {
           vehicles: finalVehicles,
           cache_date: today,
-          total_count: finalVehicles.length
+          total_count: finalVehicles.length,
+          luxury_count: selectedVehicles.length,
+          seven_seater_count: selectedSevenSeaters.length
         }
       });
       
