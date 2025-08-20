@@ -146,34 +146,31 @@ class VehicleController {
 
       // 座位数量查询
       if (seats) {
+        console.log('🔍 [座位搜索] 开始处理座位搜索参数:', seats);
+        
         // 前端传入纯数字，如 "5" 或 "7"
         if (seats.includes('-')) {
           // 范围查询：5-7
           const [minSeats, maxSeats] = seats.split('-').map(s => s.trim());
+          console.log('🔍 [座位搜索] 范围查询模式:', seats);
+          
           if (minSeats && maxSeats && !isNaN(minSeats) && !isNaN(maxSeats)) {
-            where.seats = {
-              [Op.or]: [
-                // 纯数字格式：5, 6, 7
-                { [Op.and]: [
-                  { [Op.gte]: minSeats },
-                  { [Op.lte]: maxSeats }
-                ]},
-                // 带"座"字格式：5座, 6座, 7座
-                { [Op.and]: [
-                  { [Op.like]: `%${minSeats}座%` },
-                  { [Op.like]: `%${maxSeats}座%` }
-                ]},
-                // 带空格格式：5 座, 6 座, 7 座
-                { [Op.and]: [
-                  { [Op.like]: `%${minSeats} 座%` },
-                  { [Op.like]: `%${maxSeats} 座%` }
-                ]}
-              ]
-            };
+            // 优化：范围查询只匹配数据库中的两种格式
+            const seatConditions = [];
+            for (let i = parseInt(minSeats); i <= parseInt(maxSeats); i++) {
+              seatConditions.push(
+                { [Op.eq]: `${i} 座位` }, // 带空格：7 座位
+                { [Op.eq]: `${i}座位` } // 不带空格：7座位
+              );
+            }
+            where.seats = { [Op.or]: seatConditions };
+            console.log('🔍 [座位搜索] 范围查询条件已设置');
           }
         } else if (seats.includes('>') || seats.includes('<')) {
           // 比较查询：>5, <7, >=5, <=7
           const operator = seats.match(/^([><]=?)(\d+)/);
+          console.log('🔍 [座位搜索] 比较查询模式:', seats);
+          
           if (operator) {
             const [, op, seatsValue] = operator;
             const condition = {};
@@ -191,24 +188,34 @@ class VehicleController {
                 condition[Op.lte] = seatsValue;
                 break;
             }
+            // 优化：比较查询只匹配数据库中的两种格式
             where.seats = {
               [Op.or]: [
-                condition, // 纯数字格式
-                { [Op.like]: `%${seatsValue}座%` }, // 带"座"字格式
-                { [Op.like]: `%${seatsValue} 座%` } // 带空格格式
+                { [Op.eq]: `${seatsValue} 座位` }, // 带空格：7 座位
+                { [Op.eq]: `${seatsValue}座位` } // 不带空格：7座位
               ]
             };
+            console.log('🔍 [座位搜索] 比较查询条件已设置');
           }
         } else {
           // 精确匹配：前端传入 "5" 或 "7"，匹配数据库中的各种格式
+          console.log('🔍 [座位搜索] 精确匹配模式:', seats);
+          
+          // 优化：只匹配数据库中的两种格式
           where.seats = {
             [Op.or]: [
-              { [Op.eq]: seats }, // 纯数字：5, 7
-              { [Op.eq]: `${seats}座` }, // 带"座"字：5座, 7座
-              { [Op.eq]: `${seats} 座` } // 带空格：5 座, 7 座
+              { [Op.eq]: `${seats} 座位` }, // 带空格：7 座位
+              { [Op.eq]: `${seats}座位` } // 不带空格：7座位
             ]
           };
+          
+          console.log('🔍 [座位搜索] 精确匹配条件已设置');
         }
+      }
+      
+      // 座位搜索条件检查
+      if (seats) {
+        console.log('🔍 [座位搜索] 座位搜索条件已设置，查询条件包含:', Object.keys(where));
       }
 
       // 构建排序条件
@@ -216,22 +223,39 @@ class VehicleController {
       if (sort_by && ['created_at', 'updated_at', 'current_price', 'year'].includes(sort_by)) {
         order.push([sort_by, sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC']);
       } else {
+        // 如果有座位搜索，优先按座位排序以利用索引
+        if (seats) {
+          order.push(['seats', 'ASC']);
+        }
         order.push(['created_at', 'DESC']);
       }
 
       // 执行分页查询
       const offset = (parseInt(page) - 1) * parseInt(limit);
+      
+      console.log('🔍 [座位搜索] 开始执行查询，分页参数:', { page, limit, offset });
+      
+      // 性能监控
+      const startTime = Date.now();
+      
+      // 优化：如果有座位搜索，减少查询字段以提升性能
+      const attributes = seats ? [
+        'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
+        'car_model', 'year', 'fuel_type', 'seats', 'current_price', 'original_price',
+        'contact_name', 'phone_number', 'contact_info', 'is_special_offer', 'created_at'
+      ] : [
+        'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
+        'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
+        'transmission', 'description', 'price', 'current_price', 'original_price',
+        'contact_name', 'phone_number', 'contact_info', 'is_special_offer', 'created_at'
+      ];
+
       const { count, rows: vehicles } = await Vehicle.findAndCountAll({
         where,
         order,
         limit: parseInt(limit),
         offset,
-        attributes: [
-          'id', 'vehicle_id', 'vehicle_type', 'vehicle_status', 'car_brand', 
-          'car_model', 'year', 'fuel_type', 'seats', 'engine_volume', 
-          'transmission', 'description', 'price', 'current_price', 'original_price',
-          'contact_name', 'phone_number', 'contact_info', 'is_special_offer', 'created_at'
-        ],
+        attributes,
         include: [
           {
             model: VehicleImage,
@@ -242,6 +266,9 @@ class VehicleController {
           }
         ]
       });
+      
+      const queryTime = Date.now() - startTime;
+      console.log('🔍 [座位搜索] 查询完成，找到车辆:', count, '辆，耗时:', queryTime, 'ms');
 
       // 处理手机号脱敏
       const processedVehicles = vehicles.map(vehicle => {
