@@ -28,7 +28,8 @@ const visitorStatsMiddleware = async (req, res, next) => {
         '/api/visitors/details',
         '/api/visitors/record',
         '/favicon.ico',
-        '/robots.txt'
+        '/robots.txt',
+        '/api/captcha' // 排除验证码请求
       ];
       
       // 检查是否是需要排除的路径

@@ -13,54 +13,87 @@ class VisitorController {
     try {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
       
-      // 查找今天是否已有该IP的记录
-      const existingRecord = await DailyVisitor.findOne({
+      // 使用 findOrCreate 原子操作，避免并发冲突
+      const [record, created] = await DailyVisitor.findOrCreate({
         where: {
           ip_address: ipAddress,
           visit_date: today
+        },
+        defaults: {
+          request_count: 1,
+          first_visit_time: new Date(),
+          last_visit_time: new Date(),
+          user_agent: userAgent
         }
       });
 
-      if (existingRecord) {
-        // 如果已存在，更新请求次数和最后访问时间
-        await existingRecord.update({
-          request_count: existingRecord.request_count + 1,
+      if (created) {
+        // 如果是新创建的记录，异步获取地理位置信息
+        setImmediate(async () => {
+          try {
+            const locationInfo = await getRegionByIP(ipAddress);
+            await record.update({
+              country: locationInfo.country,
+              region: locationInfo.region,
+              city: locationInfo.city,
+              isp: locationInfo.isp,
+              timezone: locationInfo.timezone,
+              location_updated_at: new Date()
+            });
+          } catch (locationError) {
+            console.error('获取地理位置信息失败:', locationError.message);
+          }
+        });
+        
+        return {
+          success: true,
+          isNewVisitor: true,
+          record: record,
+          message: '新访客记录已创建'
+        };
+      } else {
+        // 如果记录已存在，更新请求次数和最后访问时间
+        await record.update({
+          request_count: record.request_count + 1,
           last_visit_time: new Date()
         });
         
         return {
           success: true,
           isNewVisitor: false,
-          record: existingRecord,
+          record: record,
           message: '访客记录已更新'
-        };
-      } else {
-        // 如果是新访客，获取地理位置信息并创建新记录
-        const locationInfo = await getRegionByIP(ipAddress);
-        
-        const newRecord = await DailyVisitor.create({
-          ip_address: ipAddress,
-          visit_date: today,
-          request_count: 1,
-          first_visit_time: new Date(),
-          last_visit_time: new Date(),
-          user_agent: userAgent,
-          country: locationInfo.country,
-          region: locationInfo.region,
-          city: locationInfo.city,
-          isp: locationInfo.isp,
-          timezone: locationInfo.timezone,
-          location_updated_at: new Date()
-        });
-        
-        return {
-          success: true,
-          isNewVisitor: true,
-          record: newRecord,
-          message: '新访客记录已创建'
         };
       }
     } catch (error) {
+      // 如果是唯一约束冲突，尝试更新现有记录
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        try {
+          const existingRecord = await DailyVisitor.findOne({
+            where: {
+              ip_address: ipAddress,
+              visit_date: today
+            }
+          });
+          
+          if (existingRecord) {
+            await existingRecord.update({
+              request_count: existingRecord.request_count + 1,
+              last_visit_time: new Date()
+            });
+            
+            return {
+              success: true,
+              isNewVisitor: false,
+              record: existingRecord,
+              message: '访客记录已更新（冲突处理）'
+            };
+          }
+        } catch (updateError) {
+          console.error('更新访客记录失败:', updateError.message);
+        }
+      }
+      
       console.error('记录访客访问失败:', error);
       return {
         success: false,

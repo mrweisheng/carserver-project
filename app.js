@@ -146,15 +146,8 @@ app.use('*', (req, res) => {
 });
 
 // 错误处理中间件
-app.use((err, req, res, next) => {
-  console.error('错误:', err.stack);
-  
-  res.status(500).json({
-    code: 500,
-    message: '服务器内部错误',
-    data: null
-  });
-});
+const errorHandler = require('./middleware/errorHandler');
+app.use(errorHandler);
 
 // 启动服务器
 app.listen(PORT, async () => {
