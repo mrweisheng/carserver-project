@@ -41,6 +41,7 @@ class VehicleController {
         year,
         min_price,
         max_price,
+        seats,
         sort_by = 'created_at',
         sort_order = 'DESC'
       } = req.query;
@@ -140,6 +141,73 @@ class VehicleController {
         
         if (max_price && !isNaN(max_price)) {
           where.current_price[Op.lte] = parseFloat(max_price);
+        }
+      }
+
+      // 座位数量查询
+      if (seats) {
+        // 前端传入纯数字，如 "5" 或 "7"
+        if (seats.includes('-')) {
+          // 范围查询：5-7
+          const [minSeats, maxSeats] = seats.split('-').map(s => s.trim());
+          if (minSeats && maxSeats && !isNaN(minSeats) && !isNaN(maxSeats)) {
+            where.seats = {
+              [Op.or]: [
+                // 纯数字格式：5, 6, 7
+                { [Op.and]: [
+                  { [Op.gte]: minSeats },
+                  { [Op.lte]: maxSeats }
+                ]},
+                // 带"座"字格式：5座, 6座, 7座
+                { [Op.and]: [
+                  { [Op.like]: `%${minSeats}座%` },
+                  { [Op.like]: `%${maxSeats}座%` }
+                ]},
+                // 带空格格式：5 座, 6 座, 7 座
+                { [Op.and]: [
+                  { [Op.like]: `%${minSeats} 座%` },
+                  { [Op.like]: `%${maxSeats} 座%` }
+                ]}
+              ]
+            };
+          }
+        } else if (seats.includes('>') || seats.includes('<')) {
+          // 比较查询：>5, <7, >=5, <=7
+          const operator = seats.match(/^([><]=?)(\d+)/);
+          if (operator) {
+            const [, op, seatsValue] = operator;
+            const condition = {};
+            switch (op) {
+              case '>':
+                condition[Op.gt] = seatsValue;
+                break;
+              case '>=':
+                condition[Op.gte] = seatsValue;
+                break;
+              case '<':
+                condition[Op.lt] = seatsValue;
+                break;
+              case '<=':
+                condition[Op.lte] = seatsValue;
+                break;
+            }
+            where.seats = {
+              [Op.or]: [
+                condition, // 纯数字格式
+                { [Op.like]: `%${seatsValue}座%` }, // 带"座"字格式
+                { [Op.like]: `%${seatsValue} 座%` } // 带空格格式
+              ]
+            };
+          }
+        } else {
+          // 精确匹配：前端传入 "5" 或 "7"，匹配数据库中的各种格式
+          where.seats = {
+            [Op.or]: [
+              { [Op.eq]: seats }, // 纯数字：5, 7
+              { [Op.eq]: `${seats}座` }, // 带"座"字：5座, 7座
+              { [Op.eq]: `${seats} 座` } // 带空格：5 座, 7 座
+            ]
+          };
         }
       }
 

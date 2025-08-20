@@ -74,9 +74,17 @@
   - limit: 数字，可选，每页数量 (默认20)
   - vehicle_type: 数字，可选，车辆类型
   - car_brand: 字符串，可选，车厂
+  - car_model: 字符串，可选，车型
   - year: 字符串，可选，年份
   - min_price: 数字，可选，最低价格
   - max_price: 数字，可选，最高价格
+  - seats: 字符串，可选，座位数量
+  - sort_by: 字符串，可选，排序字段 (created_at/updated_at/current_price/year)
+  - sort_order: 字符串，可选，排序方向 (ASC/DESC)
+- **座位数量查询说明**:
+  - 精确匹配: "5", "7" (前端传入纯数字)
+  - 范围查询: "5-7" (5座到7座)
+  - 比较查询: ">5", "<7", ">=5", "<=7"
 - **响应**:
   - code: 状态码
   - message: 描述信息

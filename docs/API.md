@@ -87,6 +87,10 @@
     - 比较查询：`>2016`, `>=2016`, `<2018`, `<=2018` (查询大于/小于指定年份的车辆)
   - `min_price`: 最低价格（数字，基于current_price字段）
   - `max_price`: 最高价格（数字，基于current_price字段）
+  - `seats`: 座位数量查询，支持多种模式：
+    - 精确匹配：`5`, `7` (前端传入纯数字)
+    - 范围查询：`5-7` (5座到7座)
+    - 比较查询：`>5`, `<7`, `>=5`, `<=7`
   - `sort_by`: 排序字段（created_at, updated_at, current_price, year）
   - `sort_order`: 排序方向（ASC, DESC）
 - **请求头**: `Authorization: Bearer <token>` (可选，用于获取完整手机号)
@@ -317,6 +321,27 @@ curl -X GET "http://localhost:3000/api/vehicles?page=1&limit=5"
 ```bash
 curl -X GET "http://localhost:3000/api/vehicles?page=1&limit=5" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### 6. 座位搜索示例
+```bash
+# 搜索5座车辆
+curl -X GET "http://localhost:3000/api/vehicles?seats=5&limit=5"
+
+# 搜索7座车辆
+curl -X GET "http://localhost:3000/api/vehicles?seats=7&limit=5"
+
+# 搜索5-7座车辆范围
+curl -X GET "http://localhost:3000/api/vehicles?seats=5-7&limit=5"
+
+# 搜索大于5座的车辆
+curl -X GET "http://localhost:3000/api/vehicles?seats=>5&limit=5"
+
+# 搜索7座丰田车辆
+curl -X GET "http://localhost:3000/api/vehicles?seats=7&car_brand=豐田&limit=5"
+
+# 搜索5座且价格小于50000的车辆
+curl -X GET "http://localhost:3000/api/vehicles?seats=5&max_price=50000&limit=5"
 ```
 
 ## 📞 技术支持
