@@ -1,1 +1,8 @@
 # Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Note: .env file is allowed for AI features
+# If you want to exclude .env, add it here: .env
+
+# 明确允许 .env 文件被 AI 功能访问
+# 注释掉下面的行来禁用 .env 文件
+# .env

@@ -72,7 +72,8 @@ npm install
 
 3. **配置环境变量**
 ```bash
-cp .env.example .env
+cp config.env.example .env
+# 或参考 env-config.js 文件创建 .env 文件
 # 编辑 .env 文件，配置数据库连接和JWT密钥
 ```
 

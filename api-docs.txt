@@ -82,9 +82,12 @@
   - sort_by: 字符串，可选，排序字段 (created_at/updated_at/current_price/year)
   - sort_order: 字符串，可选，排序方向 (ASC/DESC)
 - **座位数量查询说明**:
-  - 精确匹配: "5", "7" (前端传入纯数字)
-  - 范围查询: "5-7" (5座到7座)
-  - 比较查询: ">5", "<7", ">=5", "<=7"
+  - 精确匹配: "5", "7" (前端传入纯数字，只支持这两种格式)
+- **性能优化**:
+  - 使用精确匹配OR条件，充分利用座位索引
+  - 座位搜索时优先使用座位索引排序
+  - 座位搜索时减少查询字段和图片数量
+  - 支持复合索引优化（座位+价格、座位+品牌）
 - **响应**:
   - code: 状态码
   - message: 描述信息
@@ -179,6 +182,76 @@
   - message: 描述信息
   - data: 品牌列表数据
 - **错误码**:
+  - 500: 服务器错误
+
+### 批量更新车辆信息
+- **接口**: POST /api/vehicles/batch-update
+- **描述**: 批量更新车辆信息，支持增量更新，不影响图片表
+- **请求参数**:
+  - updates: 数组，必填，包含更新数据
+    - vehicle_id: 字符串，必填，车辆唯一标识
+    - fields: 对象，必填，需要更新的字段
+      - vehicle_type: 数字，可选，车辆类型
+      - vehicle_status: 数字，可选，车辆状态
+      - page_number: 数字，可选，来源页面编号
+      - car_number: 字符串，可选，车辆编号
+      - car_url: 字符串，可选，车辆详情页URL
+      - car_category: 字符串，可选，车类
+      - car_brand: 字符串，可选，车厂
+      - car_model: 字符串，可选，型号
+      - fuel_type: 字符串，可选，燃料类型
+      - seats: 字符串，可选，座位数
+      - engine_volume: 字符串，可选，发动机容积
+      - transmission: 字符串，可选，传动方式
+      - year: 字符串，可选，年份
+      - description: 字符串，可选，简评/描述
+      - price: 字符串，可选，售价
+      - current_price: 数字，可选，现价（数字格式）
+      - original_price: 数字，可选，原价（数字格式）
+      - contact_info: 字符串，可选，联络人资料
+      - update_date: 字符串，可选，更新日期
+      - extra_fields: 对象，可选，扩展字段（JSON格式）
+      - contact_name: 字符串，可选，联系人姓名
+      - phone_number: 字符串，可选，联系电话
+      - is_special_offer: 数字，可选，是否特价车辆
+- **请求示例**:
+```json
+{
+  "updates": [
+    {
+      "vehicle_id": "ABC123",
+      "fields": {
+        "price": "150,000",
+        "current_price": 150000.00,
+        "vehicle_status": 2,
+        "description": "更新后的描述"
+      }
+    },
+    {
+      "vehicle_id": "DEF456",
+      "fields": {
+        "price": "200,000",
+        "is_special_offer": 1
+      }
+    }
+  ]
+}
+```
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 更新结果
+    - total_processed: 总处理数量
+    - success_count: 成功更新数量
+    - error_count: 失败数量
+    - errors: 错误详情数组（如果有错误）
+- **性能优化**:
+  - 临时禁用外键检查以提升批量更新性能
+  - 事务控制确保数据一致性
+  - 增量更新，只更新传入的字段
+  - 自动清除相关缓存
+- **错误码**:
+  - 400: 参数错误或车辆ID不存在
   - 500: 服务器错误
 
 ## 访客统计接口

@@ -52,4 +52,11 @@ router.get('/brands', vehicleController.getCarBrands);
  */
 router.get('/:vehicleId', optionalAuth, vehicleController.getVehicleDetail);
 
+/**
+ * @route POST /api/vehicles/batch-update
+ * @desc 批量更新车辆信息（支持增量更新，不影响图片表）
+ * @access Private (需要管理员权限)
+ */
+router.post('/batch-update', vehicleController.batchUpdateVehicles);
+
 module.exports = router;
