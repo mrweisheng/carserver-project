@@ -36,16 +36,23 @@ const visitorStatsMiddleware = async (req, res, next) => {
       const shouldExclude = excludePaths.some(path => req.path.includes(path));
       
       if (!shouldExclude) {
-        const result = await VisitorController.recordVisit(ipAddress, userAgent);
-        
-        // 记录访问日志（可选）
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[访客统计] ${ipAddress} - ${req.method} ${req.path} - ${result.isNewVisitor ? '新访客' : '重复访问'}`);
+        // 使用 try-catch 包装访客统计，确保错误不会传播
+        try {
+          const result = await VisitorController.recordVisit(ipAddress, userAgent);
+          
+          // 记录访问日志（可选）
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[访客统计] ${ipAddress} - ${req.method} ${req.path} - ${result.isNewVisitor ? '新访客' : '重复访问'}`);
+          }
+        } catch (visitError) {
+          // 访客统计失败不影响主业务流程，只记录错误日志
+          console.error('[访客统计错误]', visitError.message);
+          // 不抛出错误，确保不影响主业务
         }
       }
     } catch (error) {
-      // 访客统计失败不影响主业务流程，只记录错误日志
-      console.error('[访客统计错误]', error.message);
+      // 外层错误处理，确保任何错误都不会影响主业务流程
+      console.error('[访客统计中间件错误]', error.message);
     }
   });
 };

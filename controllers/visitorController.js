@@ -1,6 +1,7 @@
 const DailyVisitor = require('../models/DailyVisitor');
 const { Op } = require('sequelize');
 const { getRegionByIP } = require('../utils/ipUtils');
+const sequelize = require('../config/database');
 
 class VisitorController {
   /**
@@ -10,10 +11,14 @@ class VisitorController {
    * @returns {Promise<Object>} 记录结果
    */
   static async recordVisit(ipAddress, userAgent = '') {
+    // 使用独立的数据库连接，避免影响主业务连接池
+    const connection = await sequelize.createConnection();
+    const transaction = await connection.beginTransaction();
+    
     try {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
       
-      // 使用 findOrCreate 原子操作，避免并发冲突
+      // 使用独立连接进行查询，避免并发冲突
       const [record, created] = await DailyVisitor.findOrCreate({
         where: {
           ip_address: ipAddress,
@@ -24,22 +29,38 @@ class VisitorController {
           first_visit_time: new Date(),
           last_visit_time: new Date(),
           user_agent: userAgent
-        }
+        },
+        transaction: transaction
       });
 
       if (created) {
-        // 如果是新创建的记录，异步获取地理位置信息
+        // 提交事务
+        await transaction.commit();
+        
+        // 如果是新创建的记录，异步获取地理位置信息（使用独立连接）
         setImmediate(async () => {
           try {
             const locationInfo = await getRegionByIP(ipAddress);
-            await record.update({
-              country: locationInfo.country,
-              region: locationInfo.region,
-              city: locationInfo.city,
-              isp: locationInfo.isp,
-              timezone: locationInfo.timezone,
-              location_updated_at: new Date()
-            });
+            const locationConnection = await sequelize.createConnection();
+            const locationTransaction = await locationConnection.beginTransaction();
+            
+            try {
+              await record.update({
+                country: locationInfo.country,
+                region: locationInfo.region,
+                city: locationInfo.city,
+                isp: locationInfo.isp,
+                timezone: locationInfo.timezone,
+                location_updated_at: new Date()
+              }, { transaction: locationTransaction });
+              
+              await locationTransaction.commit();
+            } catch (locationError) {
+              await locationTransaction.rollback();
+              console.error('更新地理位置信息失败:', locationError.message);
+            } finally {
+              await locationConnection.close();
+            }
           } catch (locationError) {
             console.error('获取地理位置信息失败:', locationError.message);
           }
@@ -56,7 +77,10 @@ class VisitorController {
         await record.update({
           request_count: record.request_count + 1,
           last_visit_time: new Date()
-        });
+        }, { transaction: transaction });
+        
+        // 提交事务
+        await transaction.commit();
         
         return {
           success: true,
@@ -66,31 +90,51 @@ class VisitorController {
         };
       }
     } catch (error) {
+      // 确保事务回滚
+      try {
+        await transaction.rollback();
+      } catch (rollbackError) {
+        console.error('事务回滚失败:', rollbackError.message);
+      }
+      
       // 如果是唯一约束冲突，尝试更新现有记录
       if (error.name === 'SequelizeUniqueConstraintError') {
         try {
-          const existingRecord = await DailyVisitor.findOne({
-            where: {
-              ip_address: ipAddress,
-              visit_date: today
-            }
-          });
+          const conflictConnection = await sequelize.createConnection();
+          const conflictTransaction = await conflictConnection.beginTransaction();
           
-          if (existingRecord) {
-            await existingRecord.update({
-              request_count: existingRecord.request_count + 1,
-              last_visit_time: new Date()
+          try {
+            const existingRecord = await DailyVisitor.findOne({
+              where: {
+                ip_address: ipAddress,
+                visit_date: today
+              },
+              transaction: conflictTransaction
             });
             
-            return {
-              success: true,
-              isNewVisitor: false,
-              record: existingRecord,
-              message: '访客记录已更新（冲突处理）'
-            };
+            if (existingRecord) {
+              await existingRecord.update({
+                request_count: existingRecord.request_count + 1,
+                last_visit_time: new Date()
+              }, { transaction: conflictTransaction });
+              
+              await conflictTransaction.commit();
+              
+              return {
+                success: true,
+                isNewVisitor: false,
+                record: existingRecord,
+                message: '访客记录已更新（冲突处理）'
+              };
+            }
+          } catch (updateError) {
+            await conflictTransaction.rollback();
+            console.error('更新访客记录失败:', updateError.message);
+          } finally {
+            await conflictConnection.close();
           }
-        } catch (updateError) {
-          console.error('更新访客记录失败:', updateError.message);
+        } catch (conflictError) {
+          console.error('冲突处理失败:', conflictError.message);
         }
       }
       
