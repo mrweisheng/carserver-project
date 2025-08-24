@@ -2,6 +2,7 @@ const { Vehicle, VehicleImage, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { processPhoneNumber } = require('../utils/phoneMask');
 const { batchExtractContactInfo } = require('../utils/contactExtractor');
+const { cacheUtils } = require('../utils/cache');
 
 // 缓存对象 - 服务重启时自动清空
 // 特价车辆缓存
@@ -48,6 +49,22 @@ class VehicleController {
 
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
+
+      // 验证和规范化分页参数
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+
+      // 生成缓存键（使用验证后的参数）
+      const cacheKey = cacheUtils.generateKey('vehicles:list', {
+        page: pageNum, limit: limitNum, vehicle_type, vehicle_status, car_brand, car_model,
+        year, min_price, max_price, seats, sort_by, sort_order, isLoggedIn: isLoggedIn ? '1' : '0'
+      });
+
+      // 尝试从缓存获取数据
+      const cachedData = cacheUtils.get(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
+      }
       
 
 
@@ -183,9 +200,9 @@ class VehicleController {
       }
 
       // 执行分页查询
-      const offset = (parseInt(page) - 1) * parseInt(limit);
+      const offset = (pageNum - 1) * limitNum;
       
-      console.log('🔍 [座位搜索] 开始执行查询，分页参数:', { page, limit, offset });
+      console.log('🔍 [座位搜索] 开始执行查询，分页参数:', { page: pageNum, limit: limitNum, offset });
       
       // 性能监控
       const startTime = Date.now();
@@ -216,7 +233,7 @@ class VehicleController {
       const { count, rows: vehicles } = await Vehicle.findAndCountAll({
         where,
         order,
-        limit: parseInt(limit),
+        limit: limitNum,
         offset,
         attributes,
         include: includeOptions
@@ -257,25 +274,30 @@ class VehicleController {
       });
 
       // 计算分页信息
-      const totalPages = Math.ceil(count / parseInt(limit));
-      const hasNext = parseInt(page) < totalPages;
-      const hasPrev = parseInt(page) > 1;
+      const totalPages = Math.ceil(count / limitNum);
+      const hasNext = pageNum < totalPages;
+      const hasPrev = pageNum > 1;
 
-      res.json({
+      const responseData = {
         code: 200,
         message: '查询成功',
         data: {
           vehicles: processedVehicles,
           pagination: {
-            current_page: parseInt(page),
+            current_page: pageNum,
             total_pages: totalPages,
             total_count: count,
-            limit: parseInt(limit),
+            limit: limitNum,
             has_next: hasNext,
             has_prev: hasPrev
           }
         }
-      });
+      };
+
+      // 设置缓存（10分钟过期）
+      cacheUtils.set(cacheKey, responseData, 600);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('获取车辆列表失败:', error);
@@ -298,35 +320,16 @@ class VehicleController {
       // 获取当前日期（YYYY-MM-DD格式）
       const today = new Date().toISOString().split('T')[0];
       
-      // 检查缓存是否有效（同一天且服务未重启）
-      if (specialOfferCache.date === today && specialOfferCache.data) {
-        // 处理缓存数据中的手机号脱敏
-        const processedVehicles = specialOfferCache.data.map(vehicle => {
-          const vehicleData = { ...vehicle };
-          // 确保字段映射
-          if (vehicleData.car_brand && !vehicleData.brand) {
-            vehicleData.brand = vehicleData.car_brand;
-          }
-          if (vehicleData.car_model && !vehicleData.model) {
-            vehicleData.model = vehicleData.car_model;
-          }
-          // 确保缓存数据中的is_special_offer为1
-          vehicleData.is_special_offer = 1;
-          if (vehicleData.phone_number) {
-            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
-          }
-          return vehicleData;
-        });
-        
-        return res.json({
-          code: 200,
-          message: '查询成功（缓存数据）',
-          data: {
-            vehicles: processedVehicles,
-            cache_date: today,
-            total_count: processedVehicles.length
-          }
-        });
+      // 生成缓存键
+      const cacheKey = cacheUtils.generateKey('vehicles:special', {
+        date: today,
+        isLoggedIn: isLoggedIn ? '1' : '0'
+      });
+
+      // 尝试从缓存获取数据
+      const cachedData = cacheUtils.get(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
       }
       
       // 豪华品牌列表
@@ -660,7 +663,7 @@ class VehicleController {
         return vehicleData;
       });
       
-      res.json({
+      const responseData = {
         code: 200,
         message: '查询成功',
         data: {
@@ -670,7 +673,12 @@ class VehicleController {
           luxury_count: selectedVehicles.length,
           seven_seater_count: selectedSevenSeaters.length
         }
-      });
+      };
+
+      // 设置缓存（5分钟过期）
+      cacheUtils.set(cacheKey, responseData, 300);
+
+      res.json(responseData);
       
     } catch (error) {
       console.error('获取特价车辆失败:', error);
@@ -699,6 +707,18 @@ class VehicleController {
 
       // 检查用户登录状态
       const isLoggedIn = req.user && req.user.id;
+
+      // 生成缓存键
+      const cacheKey = cacheUtils.generateKey('vehicles:detail', {
+        vehicleId,
+        isLoggedIn: isLoggedIn ? '1' : '0'
+      });
+
+      // 尝试从缓存获取数据
+      const cachedData = cacheUtils.get(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
+      }
       
 
 
@@ -776,11 +796,16 @@ class VehicleController {
         vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
       }
 
-      res.json({
+      const responseData = {
         code: 200,
         message: '查询成功',
         data: vehicleData
-      });
+      };
+
+      // 设置缓存（5分钟过期）
+      cacheUtils.set(cacheKey, responseData, 300);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('获取车辆详情失败:', error);
@@ -869,25 +894,16 @@ class VehicleController {
       // 获取当前日期（YYYY-MM-DD格式）
       const today = new Date().toISOString().split('T')[0];
       
-      // 检查缓存是否有效（同一天且服务未重启）
-      if (featuredVehiclesCache.date === today && featuredVehiclesCache.data) {
-        // 处理缓存数据中的手机号脱敏
-        const processedVehicles = featuredVehiclesCache.data.map(vehicle => {
-          const vehicleData = { ...vehicle };
-          if (vehicleData.phone_number) {
-            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
-          }
-          return vehicleData;
-        });
-        
-        return res.json({
-          code: 200,
-          message: '获取精选车辆成功（缓存数据）',
-          data: {
-            vehicles: processedVehicles,
-            total_count: processedVehicles.length
-          }
-        });
+      // 生成缓存键
+      const cacheKey = cacheUtils.generateKey('vehicles:featured', {
+        date: today,
+        isLoggedIn: isLoggedIn ? '1' : '0'
+      });
+
+      // 尝试从缓存获取数据
+      const cachedData = cacheUtils.get(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
       }
 
       // 构建查询条件
@@ -986,14 +1002,19 @@ class VehicleController {
         return result;
       });
 
-      res.json({
+      const responseData = {
         code: 200,
         message: '获取精选车辆成功',
         data: {
           vehicles: processedVehicles,
           total_count: processedVehicles.length
         }
-      });
+      };
+
+      // 设置缓存（10分钟过期）
+      cacheUtils.set(cacheKey, responseData, 600);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('获取精选车辆失败:', error);
@@ -1017,25 +1038,16 @@ class VehicleController {
       const now = new Date();
       const currentHour = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}`;
       
-      // 检查缓存是否有效（同一小时且服务未重启）
-      if (latestVehiclesCache.hour === currentHour && latestVehiclesCache.data) {
-        // 处理缓存数据中的手机号脱敏
-        const processedVehicles = latestVehiclesCache.data.map(vehicle => {
-          const vehicleData = { ...vehicle };
-          if (vehicleData.phone_number) {
-            vehicleData.phone_number = processPhoneNumber(vehicleData.phone_number, isLoggedIn);
-          }
-          return vehicleData;
-        });
-        
-        return res.json({
-          code: 200,
-          message: '获取最新上架车辆成功（缓存数据）',
-          data: {
-            vehicles: processedVehicles,
-            total_count: processedVehicles.length
-          }
-        });
+      // 生成缓存键
+      const cacheKey = cacheUtils.generateKey('vehicles:latest', {
+        hour: currentHour,
+        isLoggedIn: isLoggedIn ? '1' : '0'
+      });
+
+      // 尝试从缓存获取数据
+      const cachedData = cacheUtils.get(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
       }
 
       // 直接计算30天前的时间，无需额外查询
@@ -1139,14 +1151,19 @@ class VehicleController {
         return result;
       });
 
-      res.json({
+      const responseData = {
         code: 200,
         message: '获取最新上架车辆成功',
         data: {
           vehicles: processedVehicles,
           total_count: processedVehicles.length
         }
-      });
+      };
+
+      // 设置缓存（5分钟过期）
+      cacheUtils.set(cacheKey, responseData, 300);
+
+      res.json(responseData);
 
     } catch (error) {
       console.error('获取最新上架车辆失败:', error);
@@ -1203,6 +1220,48 @@ class VehicleController {
       res.status(500).json({
         code: 500,
         message: '获取品牌列表失败',
+        data: null
+      });
+    }
+  }
+
+  /**
+   * 获取缓存统计信息
+   */
+  async getCacheStats(req, res) {
+    try {
+      const stats = cacheUtils.getStats();
+      res.json({
+        code: 200,
+        message: '获取缓存统计成功',
+        data: stats
+      });
+    } catch (error) {
+      console.error('获取缓存统计失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: '获取缓存统计失败',
+        data: null
+      });
+    }
+  }
+
+  /**
+   * 清空所有缓存
+   */
+  async clearCache(req, res) {
+    try {
+      cacheUtils.clear();
+      res.json({
+        code: 200,
+        message: '缓存已清空',
+        data: null
+      });
+    } catch (error) {
+      console.error('清空缓存失败:', error);
+      res.status(500).json({
+        code: 500,
+        message: '清空缓存失败',
         data: null
       });
     }
@@ -1464,9 +1523,7 @@ class VehicleController {
       await transaction.commit();
 
       // 清除相关缓存
-      specialOfferCache.data = null;
-      featuredVehiclesCache.data = null;
-      latestVehiclesCache.data = null;
+      cacheUtils.clearVehicleCache();
 
       res.json({
         code: 200,

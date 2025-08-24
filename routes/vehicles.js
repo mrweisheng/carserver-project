@@ -53,6 +53,20 @@ router.get('/brands', vehicleController.getCarBrands);
 router.get('/:vehicleId', optionalAuth, vehicleController.getVehicleDetail);
 
 /**
+ * @route GET /api/vehicles/cache/stats
+ * @desc 获取缓存统计信息
+ * @access Private (需要管理员权限)
+ */
+router.get('/cache/stats', vehicleController.getCacheStats);
+
+/**
+ * @route POST /api/vehicles/cache/clear
+ * @desc 清空所有缓存
+ * @access Private (需要管理员权限)
+ */
+router.post('/cache/clear', vehicleController.clearCache);
+
+/**
  * @route POST /api/vehicles/batch-update
  * @desc 批量更新车辆信息（支持增量更新，不影响图片表）
  * @access Private (需要管理员权限)

@@ -11,53 +11,30 @@ const sequelize = new Sequelize(
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
-      max: 20,           // 增加最大连接数
-      min: 5,            // 增加最小连接数
-      acquire: 60000,    // 获取连接超时1分钟
+      max: 50,           // 高并发：最大连接数提升到50
+      min: 5,            // 保持最小连接数，减少连接创建开销
+      acquire: 30000,    // 获取连接超时30秒
       idle: 30000,       // 空闲连接超时30秒
-      evict: 60000       // 清理空闲连接间隔
+      evict: 60000       // 清理空闲连接间隔60秒
     },
     dialectOptions: {
-      connectTimeout: 60000,   // 连接超时1分钟
-      charset: 'utf8mb4'       // 字符集
-    },
-    retry: {
-      max: 5,            // 增加重试次数
-      timeout: 3000      // 重试间隔
+      charset: 'utf8mb4'
     },
     timezone: '+08:00'
   }
 );
 
-// 测试数据库连接
+// 简单的连接测试
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ 数据库连接成功');
   } catch (error) {
-    console.error('❌ 数据库连接失败:', error);
-    console.log('请检查：');
-    console.log('1. MySQL服务是否启动');
-    console.log('2. 数据库连接配置是否正确');
-    console.log('3. 网络连接是否正常');
-    // 不退出程序，让应用继续运行
-  }
-};
-
-// 定期检查数据库连接健康状态
-const healthCheck = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('🟢 数据库连接健康检查通过');
-  } catch (error) {
-    console.error('🔴 数据库连接健康检查失败:', error);
+    console.error('❌ 数据库连接失败:', error.message);
   }
 };
 
 // 启动时测试连接
 testConnection();
-
-// 每5分钟进行一次健康检查
-setInterval(healthCheck, 5 * 60 * 1000);
 
 module.exports = sequelize;

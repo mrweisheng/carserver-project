@@ -11,9 +11,8 @@ class VisitorController {
    * @returns {Promise<Object>} 记录结果
    */
   static async recordVisit(ipAddress, userAgent = '') {
-    // 使用独立的数据库连接，避免影响主业务连接池
-    const connection = await sequelize.createConnection();
-    const transaction = await connection.beginTransaction();
+    // 使用主连接池的事务，避免创建独立连接
+    const transaction = await sequelize.transaction();
     
     try {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
@@ -37,12 +36,11 @@ class VisitorController {
         // 提交事务
         await transaction.commit();
         
-        // 如果是新创建的记录，异步获取地理位置信息（使用独立连接）
+        // 如果是新创建的记录，异步获取地理位置信息
         setImmediate(async () => {
           try {
             const locationInfo = await getRegionByIP(ipAddress);
-            const locationConnection = await sequelize.createConnection();
-            const locationTransaction = await locationConnection.beginTransaction();
+            const locationTransaction = await sequelize.transaction();
             
             try {
               await record.update({
@@ -58,8 +56,6 @@ class VisitorController {
             } catch (locationError) {
               await locationTransaction.rollback();
               console.error('更新地理位置信息失败:', locationError.message);
-            } finally {
-              await locationConnection.close();
             }
           } catch (locationError) {
             console.error('获取地理位置信息失败:', locationError.message);
