@@ -52,13 +52,6 @@ router.get('/special-offers', optionalAuth, vehicleController.getSpecialOfferVeh
 router.get('/brands', vehicleController.getCarBrands);
 
 /**
- * @route GET /api/vehicles/:vehicleId
- * @desc 获取车辆详情
- * @access Public (支持可选身份验证)
- */
-router.get('/:vehicleId', optionalAuth, vehicleController.getVehicleDetail);
-
-/**
  * @route GET /api/vehicles/cache/stats
  * @desc 获取缓存统计信息
  * @access Private (需要管理员权限)
@@ -115,6 +108,13 @@ router.get('/my-vehicles',
   authenticateToken,
   VehiclePublishController.getMyVehicles
 );
+
+/**
+ * @route GET /api/vehicles/:vehicleId
+ * @desc 获取车辆详情
+ * @access Public (支持可选身份验证)
+ */
+router.get('/:vehicleId', optionalAuth, vehicleController.getVehicleDetail);
 
 /**
  * @route PUT /api/vehicles/:vehicleId
