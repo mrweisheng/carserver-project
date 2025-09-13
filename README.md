@@ -16,6 +16,12 @@
 - **车辆统计信息**：类型分布、状态统计、热门品牌
 - **智能筛选**：按类型、状态、品牌、年份、座位数量等条件筛选
 
+### 🚀 车辆发布系统
+- **车辆发布**：支持用户发布车辆信息
+- **图片上传**：支持多图片上传（最多10张，每张最大5MB）
+- **格式支持**：JPEG、JPG、PNG、WEBP格式
+- **状态管理**：支持发布、草稿、下架状态
+
 ### 🛡️ 智能隐私保护
 - **手机号脱敏**：未登录用户显示脱敏号码（13******89）
 - **登录状态识别**：已登录用户显示完整联系方式
@@ -47,6 +53,7 @@
 ### 核心模块
 - **用户管理**：注册、登录、会话管理
 - **车辆查询**：列表、详情、统计
+- **车辆发布**：发布、图片上传、状态管理
 - **隐私保护**：智能脱敏、权限控制
 - **安全防护**：反爬虫、频率限制、验证码
 
@@ -231,6 +238,28 @@ Authorization: Bearer <your_jwt_token>
 - **[部署指南](./docs/DEPLOYMENT_GUIDE.md)** - 部署和配置说明
 - **[贡献指南](./docs/CONTRIBUTING.md)** - 参与项目开发
 - **[更新日志](./docs/CHANGELOG.md)** - 版本变更记录
+
+## 🌐 服务器部署信息
+
+### 生产环境配置
+- **域名**: car.gaoshanguoji.top
+- **API路径**: https://car.gaoshanguoji.top/server/api/
+- **nginx配置**: /etc/nginx/sites-available/car.gaoshanguoji.top
+- **SSL证书**: Let's Encrypt (自动续期)
+- **静态文件**: /var/www/eazycar
+- **上传目录**: /var/www/eazycar/uploads (需要配置)
+
+### API访问示例
+```bash
+# 获取车辆列表
+GET https://car.gaoshanguoji.top/server/api/vehicles
+
+# 发布车辆
+POST https://car.gaoshanguoji.top/server/api/vehicles/publish
+
+# 访问上传图片
+GET https://car.gaoshanguoji.top/uploads/vehicles/[filename]
+```
 
 ## 📞 联系方式
 

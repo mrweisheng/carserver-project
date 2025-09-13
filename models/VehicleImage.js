@@ -28,6 +28,11 @@ const VehicleImage = sequelize.define('VehicleImage', {
     allowNull: true,
     defaultValue: 0,
     comment: '图片顺序（0,1,2,3...）'
+  },
+  thumbnail_url: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: '缩略图URL'
   }
 }, {
   tableName: 'vehicle_images',

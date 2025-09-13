@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const vehicleController = require('../controllers/vehicleController');
-const { optionalAuth } = require('../middleware/auth');
+const VehiclePublishController = require('../controllers/vehiclePublishController');
+const { optionalAuth, authenticateToken } = require('../middleware/auth');
+const {
+  vehicleImageUpload,
+  singleImageUpload,
+  handleUploadError
+} = require('../middleware/uploadMiddleware');
 
 /**
  * @route GET /api/vehicles
@@ -72,5 +78,89 @@ router.post('/cache/clear', vehicleController.clearCache);
  * @access Private (需要管理员权限)
  */
 router.post('/batch-update', vehicleController.batchUpdateVehicles);
+
+// ============================================
+// 车辆发布管理路由 (需要用户登录)
+// ============================================
+
+/**
+ * @route POST /api/vehicles/publish
+ * @desc 发布车辆（包含图片上传）
+ * @access Private (需要用户登录)
+ */
+router.post('/publish',
+  authenticateToken,
+  vehicleImageUpload,
+  handleUploadError,
+  VehiclePublishController.validateVehicleData(),
+  VehiclePublishController.publishVehicle
+);
+
+/**
+ * @route POST /api/vehicles/draft
+ * @desc 保存车辆草稿
+ * @access Private (需要用户登录)
+ */
+router.post('/draft',
+  authenticateToken,
+  VehiclePublishController.saveDraft
+);
+
+/**
+ * @route GET /api/vehicles/my-vehicles
+ * @desc 获取我的车辆列表
+ * @access Private (需要用户登录)
+ */
+router.get('/my-vehicles',
+  authenticateToken,
+  VehiclePublishController.getMyVehicles
+);
+
+/**
+ * @route PUT /api/vehicles/:vehicleId
+ * @desc 更新车辆信息
+ * @access Private (需要用户登录)
+ */
+router.put('/:vehicleId',
+  authenticateToken,
+  VehiclePublishController.updateVehicle
+);
+
+/**
+ * @route DELETE /api/vehicles/:vehicleId
+ * @desc 删除车辆
+ * @access Private (需要用户登录)
+ */
+router.delete('/:vehicleId',
+  authenticateToken,
+  VehiclePublishController.deleteVehicle
+);
+
+/**
+ * @route POST /api/vehicles/:vehicleId/images
+ * @desc 为现有车辆添加图片
+ * @access Private (需要用户登录)
+ */
+router.post('/:vehicleId/images',
+  authenticateToken,
+  vehicleImageUpload,
+  handleUploadError,
+  async (req, res) => {
+    try {
+      // TODO: 实现为现有车辆添加图片的功能
+      res.json({
+        code: 200,
+        message: '功能开发中',
+        data: null
+      });
+    } catch (error) {
+      res.status(500).json({
+        code: 500,
+        message: '添加图片失败',
+        error: error.message
+      });
+    }
+  }
+);
 
 module.exports = router;

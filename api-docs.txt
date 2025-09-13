@@ -254,6 +254,221 @@
   - 400: 参数错误或车辆ID不存在
   - 500: 服务器错误
 
+## 车辆发布管理接口
+
+### 发布车辆
+- **接口**: POST /api/vehicles/publish
+- **描述**: 发布车辆（包含图片上传）
+- **认证**: 需要JWT Token
+- **请求类型**: multipart/form-data
+- **请求参数**:
+  - car_brand: 字符串，必填，车辆品牌
+  - car_model: 字符串，必填，车辆型号
+  - year: 字符串，必填，年份 (格式：YYYY)
+  - price: 字符串，必填，价格 (支持数字和中文)
+  - contact_name: 字符串，必填，联系人姓名
+  - phone_number: 字符串，必填，联系电话 (支持大陆11位或香港8位)
+  - vehicle_type: 数字，可选，车辆类型 (1=私家车, 2=客货车, 3=货车, 4=电单车, 5=经典车)
+  - fuel_type: 字符串，可选，燃料类型
+  - seats: 字符串，可选，座位数
+  - engine_volume: 字符串，可选，发动机容积
+  - transmission: 字符串，可选，传动方式
+  - description: 字符串，可选，车辆描述
+  - publish_status: 数字，可选，发布状态 (1=已发布, 2=草稿, 3=下架)
+  - images: 文件数组，可选，车辆图片 (最多10张，每张最大5MB)
+- **支持的图片格式**: JPEG, JPG, PNG, WEBP
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 发布结果
+    - vehicle: 车辆基本信息
+    - images: 图片信息数组
+    - image_count: 图片数量
+- **响应示例**:
+```json
+{
+  "code": 200,
+  "message": "车辆发布成功",
+  "data": {
+    "vehicle": {
+      "id": 1,
+      "vehicle_id": "u1_v1234567890_123",
+      "car_brand": "丰田",
+      "car_model": "卡罗拉",
+      "year": "2020",
+      "price": "15万",
+      "current_price": 150000.00,
+      "publish_status": 1,
+      "created_at": "2025-09-13T16:30:00.000Z"
+    },
+    "images": [
+      {
+        "id": 1,
+        "image_url": "/uploads/vehicles/2025-09-13/1234567890_123_processed.jpg",
+        "thumbnail_url": "/uploads/vehicles/2025-09-13/1234567890_123_thumb.jpg",
+        "image_order": 0,
+        "width": 1920,
+        "height": 1080,
+        "size": 204800
+      }
+    ],
+    "image_count": 1
+  }
+}
+```
+- **错误码**:
+  - 400: 参数验证失败
+  - 401: 未认证
+  - 413: 文件大小超过限制
+  - 415: 不支持的文件类型
+  - 500: 服务器错误
+
+### 保存车辆草稿
+- **接口**: POST /api/vehicles/draft
+- **描述**: 保存车辆草稿（无需图片）
+- **认证**: 需要JWT Token
+- **请求参数**:
+  - car_brand: 字符串，必填，车辆品牌
+  - 其他参数均为可选
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 草稿信息
+- **错误码**:
+  - 400: 参数错误
+  - 401: 未认证
+  - 500: 服务器错误
+
+### 获取我的车辆列表
+- **接口**: GET /api/vehicles/my-vehicles
+- **描述**: 获取当前用户发布的车辆列表
+- **认证**: 需要JWT Token
+- **请求参数**:
+  - page: 数字，可选，页码 (默认1)
+  - limit: 数字，可选，每页数量 (默认20)
+  - publish_status: 数字，可选，筛选发布状态 (1=已发布, 2=草稿, 3=下架)
+  - vehicle_type: 数字，可选，筛选车辆类型
+  - sort_by: 字符串，可选，排序字段 (默认created_at)
+  - sort_order: 字符串，可选，排序方向 (ASC/DESC，默认DESC)
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 车辆列表和分页信息
+    - vehicles: 车辆数组
+    - pagination: 分页信息
+- **响应示例**:
+```json
+{
+  "code": 200,
+  "message": "获取成功",
+  "data": {
+    "vehicles": [
+      {
+        "id": 1,
+        "vehicle_id": "u1_v1234567890_123",
+        "car_brand": "丰田",
+        "car_model": "卡罗拉",
+        "year": "2020",
+        "price": "15万",
+        "current_price": 150000.00,
+        "publish_status": 1,
+        "created_at": "2025-09-13T16:30:00.000Z",
+        "images": [
+          {
+            "id": 1,
+            "image_url": "/uploads/vehicles/2025-09-13/1234567890_123_processed.jpg",
+            "thumbnail_url": "/uploads/vehicles/2025-09-13/1234567890_123_thumb.jpg",
+            "image_order": 0
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 20,
+      "total": 1,
+      "total_pages": 1
+    }
+  }
+}
+```
+- **错误码**:
+  - 401: 未认证
+  - 500: 服务器错误
+
+### 更新车辆信息
+- **接口**: PUT /api/vehicles/:vehicleId
+- **描述**: 更新车辆信息
+- **认证**: 需要JWT Token
+- **请求参数**:
+  - vehicleId: 路径参数，车辆ID
+  - 更新字段对象（支持发布接口中的所有字段）
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 更新后的车辆信息
+- **错误码**:
+  - 400: 参数错误
+  - 401: 未认证
+  - 403: 无权限操作
+  - 404: 车辆不存在
+  - 500: 服务器错误
+
+### 删除车辆
+- **接口**: DELETE /api/vehicles/:vehicleId
+- **描述**: 删除车辆（会级联删除相关图片）
+- **认证**: 需要JWT Token
+- **请求参数**:
+  - vehicleId: 路径参数，车辆ID
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+- **错误码**:
+  - 401: 未认证
+  - 403: 无权限操作
+  - 404: 车辆不存在
+  - 500: 服务器错误
+
+### 为车辆添加图片
+- **接口**: POST /api/vehicles/:vehicleId/images
+- **描述**: 为现有车辆添加图片
+- **认证**: 需要JWT Token
+- **请求类型**: multipart/form-data
+- **请求参数**:
+  - vehicleId: 路径参数，车辆ID
+  - images: 文件数组，图片文件
+- **响应**:
+  - code: 状态码
+  - message: 描述信息
+  - data: 图片处理结果
+- **错误码**:
+  - 401: 未认证
+  - 403: 无权限操作
+  - 404: 车辆不存在
+  - 413: 文件大小超过限制
+  - 415: 不支持的文件类型
+  - 500: 服务器错误
+
+## 图片处理说明
+
+### 自动处理功能
+1. **图片压缩**: 自动压缩上传的图片，保持画质的同时减小文件大小
+2. **缩略图生成**: 自动生成300x300像素的缩略图
+3. **格式转换**: 自动优化图片格式
+4. **尺寸调整**: 大图片会自动调整到合适的尺寸（最大1920x1080）
+
+### 文件存储规则
+1. **目录结构**: `/uploads/vehicles/YYYY-MM-DD/`
+2. **文件命名**: `时间戳_随机数.扩展名`
+3. **处理文件**: `原文件名_processed.扩展名`
+4. **缩略图**: `原文件名_thumb.扩展名`
+
+### 文件限制
+- **最大文件大小**: 5MB
+- **最大文件数量**: 10个
+- **支持格式**: JPEG, JPG, PNG, WEBP
+- **图片尺寸**: 自动调整，最大1920x1080
+
 ## 访客统计接口
 
 ### 获取访客统计数据

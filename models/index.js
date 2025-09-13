@@ -18,6 +18,19 @@ VehicleImage.belongsTo(Vehicle, {
   as: 'vehicle'
 });
 
+// 用户和车辆的关联关系
+User.hasMany(Vehicle, {
+  foreignKey: 'user_id',
+  sourceKey: 'id',
+  as: 'vehicles'
+});
+
+Vehicle.belongsTo(User, {
+  foreignKey: 'user_id',
+  targetKey: 'id',
+  as: 'user'
+});
+
 // 同步数据库（仅连接测试，不修改表结构）
 const syncDatabase = async () => {
   try {

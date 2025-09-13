@@ -8,6 +8,11 @@ const Vehicle = sequelize.define('Vehicle', {
     autoIncrement: true,
     comment: '自增主键'
   },
+  user_id: {
+    type: DataTypes.BIGINT,
+    allowNull: false,
+    comment: '发布用户ID'
+  },
   vehicle_id: {
     type: DataTypes.STRING(50),
     allowNull: false,
@@ -25,6 +30,12 @@ const Vehicle = sequelize.define('Vehicle', {
     allowNull: false,
     defaultValue: 1,
     comment: '车辆状态：1=未售, 2=已售'
+  },
+  publish_status: {
+    type: DataTypes.TINYINT,
+    allowNull: false,
+    defaultValue: 1,
+    comment: '发布状态：1=已发布, 2=草稿, 3=下架'
   },
   page_number: {
     type: DataTypes.INTEGER,
@@ -139,5 +150,14 @@ const Vehicle = sequelize.define('Vehicle', {
   updatedAt: 'updated_at',
   comment: '车辆基础信息表'
 });
+
+// 关联关系
+Vehicle.associate = (models) => {
+  Vehicle.belongsTo(models.User, {
+    foreignKey: 'user_id',
+    targetKey: 'id',
+    as: 'user'
+  });
+};
 
 module.exports = Vehicle;

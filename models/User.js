@@ -113,4 +113,13 @@ User.prototype.toJSON = function() {
   return values;
 };
 
+// 关联关系
+User.associate = (models) => {
+  User.hasMany(models.Vehicle, {
+    foreignKey: 'user_id',
+    sourceKey: 'id',
+    as: 'vehicles'
+  });
+};
+
 module.exports = User;
