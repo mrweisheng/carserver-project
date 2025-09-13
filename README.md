@@ -242,12 +242,15 @@ Authorization: Bearer <your_jwt_token>
 ## 🌐 服务器部署信息
 
 ### 生产环境配置
+- **服务器**: Ubuntu (阿里云)
+- **项目目录**: /var/www/carserver-project
 - **域名**: car.gaoshanguoji.top
 - **API路径**: https://car.gaoshanguoji.top/server/api/
 - **nginx配置**: /etc/nginx/sites-available/car.gaoshanguoji.top
 - **SSL证书**: Let's Encrypt (自动续期)
 - **静态文件**: /var/www/eazycar
-- **上传目录**: /var/www/eazycar/uploads (需要配置)
+- **上传目录**: /var/www/eazycar/uploads
+- **进程管理**: PM2 (cluster模式，4个进程)
 
 ### API访问示例
 ```bash

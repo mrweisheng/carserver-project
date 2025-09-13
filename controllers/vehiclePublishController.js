@@ -133,7 +133,7 @@ class VehiclePublishController {
 
       try {
         // 生成车辆ID
-        const vehicleId = this.generateVehicleId(userId);
+        const vehicleId = VehiclePublishController.generateVehicleId(userId);
 
         // 处理价格字段
         const priceStr = String(vehicleData.price);
@@ -283,7 +283,7 @@ class VehiclePublishController {
       const transaction = await sequelize.transaction();
 
       try {
-        const vehicleId = this.generateVehicleId(userId);
+        const vehicleId = VehiclePublishController.generateVehicleId(userId);
 
         const vehicleCreateData = {
           vehicle_id: vehicleId,
