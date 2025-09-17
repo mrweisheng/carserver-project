@@ -65,12 +65,7 @@ router.get('/cache/stats', vehicleController.getCacheStats);
  */
 router.post('/cache/clear', vehicleController.clearCache);
 
-/**
- * @route POST /api/vehicles/batch-update
- * @desc 批量更新车辆信息（支持增量更新，不影响图片表）
- * @access Private (需要管理员权限)
- */
-router.post('/batch-update', vehicleController.batchUpdateVehicles);
+
 
 // ============================================
 // 车辆发布管理路由 (需要用户登录)

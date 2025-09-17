@@ -70,11 +70,11 @@ class VehicleController {
 
       // 构建查询条件
       const where = {};
-      
+
       if (vehicle_type) {
         where.vehicle_type = vehicle_type;
       }
-      
+
       if (vehicle_status) {
         where.vehicle_status = vehicle_status;
       }
@@ -164,19 +164,22 @@ class VehicleController {
       // 座位数量查询
       if (seats) {
         console.log('🔍 [座位搜索] 开始处理座位搜索参数:', seats);
-        
+
         // 前端传入纯数字，如 "5" 或 "7"
-        console.log('🔍 [座位搜索] 精确匹配模式:', seats);
-        
-        // 性能优化：使用 OR 条件精确匹配，只匹配数据库中的两种格式
+        console.log('🔍 [座位搜索] 兼容匹配模式:', seats);
+
+        // 兼容性处理：支持多种座位数格式（优先精确匹配）
         where.seats = {
           [Op.or]: [
-            { [Op.eq]: `${seats} 座位` }, // 带空格：5 座位
-            { [Op.eq]: `${seats}座位` } // 不带空格：5座位
+            { [Op.eq]: `${seats}座位` },    // 标准格式：5座位 (新数据格式)
+            { [Op.eq]: `${seats} 座位` },   // 带空格格式：5 座位 (存量数据格式)
+            { [Op.eq]: seats },            // 纯数字格式：5 (可能的旧格式)
+            { [Op.like]: `${seats}座` },     // 以数字+座开头：5座, 5座位等
+            { [Op.like]: `${seats} 座` }     // 以数字+座开头：5 座, 5 座位等
           ]
         };
-        
-        console.log('🔍 [座位搜索] 精确匹配条件已设置，使用OR条件优化');
+
+        console.log('🔍 [座位搜索] 兼容匹配条件已设置，优先精确匹配');
       }
       
       // 座位搜索条件检查
@@ -1267,304 +1270,7 @@ class VehicleController {
     }
   }
 
-  /**
-   * 批量更新车辆信息
-   * 支持增量更新，只更新传入的字段，不影响图片表
-   */
-  async batchUpdateVehicles(req, res) {
-    let transaction = null;
-    
-    try {
-      // 检查数据库连接状态
-      try {
-        await sequelize.authenticate();
-      } catch (error) {
-        console.error('数据库连接失败:', error);
-        return res.status(500).json({
-          code: 500,
-          message: '数据库连接失败，请稍后重试',
-          data: null
-        });
-      }
 
-      // 创建事务
-      transaction = await sequelize.transaction();
-      const { updates } = req.body;
-      
-      // 参数验证
-      if (!updates || !Array.isArray(updates) || updates.length === 0) {
-        return res.status(400).json({
-          code: 400,
-          message: '请求参数错误：updates必须是包含更新数据的数组',
-          data: null
-        });
-      }
-
-      // 性能限制：单次最多处理1000条记录
-      const MAX_BATCH_SIZE = 1000;
-      if (updates.length > MAX_BATCH_SIZE) {
-        return res.status(400).json({
-          code: 400,
-          message: `批量更新数量超过限制，单次最多支持${MAX_BATCH_SIZE}条记录`,
-          data: null
-        });
-      }
-
-      // 验证每个更新项
-      for (const update of updates) {
-        if (!update.vehicle_id || !update.fields || typeof update.fields !== 'object') {
-          return res.status(400).json({
-            code: 400,
-            message: '请求参数错误：每个更新项必须包含vehicle_id和fields',
-            data: null
-          });
-        }
-      }
-
-      // 获取所有需要更新的vehicle_id
-      const vehicleIds = updates.map(update => update.vehicle_id);
-      
-      // 验证车辆是否存在
-      const existingVehicles = await Vehicle.findAll({
-        where: { vehicle_id: vehicleIds },
-        attributes: ['vehicle_id'],
-        transaction
-      });
-
-      const existingVehicleIds = existingVehicles.map(v => v.vehicle_id);
-      const nonExistingIds = vehicleIds.filter(id => !existingVehicleIds.includes(id));
-
-      if (nonExistingIds.length > 0) {
-        await transaction.rollback();
-        return res.status(400).json({
-          code: 400,
-          message: `以下车辆ID不存在：${nonExistingIds.join(', ')}`,
-          data: null
-        });
-      }
-
-      // 定义允许更新的字段及其数据类型验证
-      const fieldValidations = {
-        'vehicle_type': { type: 'number', min: 1, max: 5 },
-        'vehicle_status': { type: 'number', min: 1, max: 2 },
-        'page_number': { type: 'number', min: 1 },
-        'car_number': { type: 'string', maxLength: 50 },
-        'car_url': { type: 'string', maxLength: 1000 },
-        'car_category': { type: 'string', maxLength: 100 },
-        'car_brand': { type: 'string', maxLength: 100 },
-        'car_model': { type: 'string', maxLength: 200 },
-        'fuel_type': { type: 'string', maxLength: 50 },
-        'seats': { type: 'string', maxLength: 20 }, // 纯字符串，不进行任何数字处理
-        'engine_volume': { type: 'string', maxLength: 50 },
-        'transmission': { type: 'string', maxLength: 50 },
-        'year': { type: 'string', maxLength: 20 },
-        'description': { type: 'string', maxLength: 5000 },
-        'price': { type: 'string', maxLength: 100 }, // 纯字符串
-        'current_price': { type: 'number', min: 0 },
-        'original_price': { type: 'number', min: 0 },
-        'contact_info': { type: 'string', maxLength: 2000 },
-        'update_date': { type: 'string', maxLength: 50 },
-        'extra_fields': { type: 'object' },
-        'contact_name': { type: 'string', maxLength: 100 },
-        'phone_number': { type: 'string', maxLength: 20 },
-        'is_special_offer': { type: 'number', min: 0, max: 1 }
-      };
-
-      const allowedFields = Object.keys(fieldValidations);
-
-      // 记录操作日志
-      console.log(`[批量更新] 开始处理 ${updates.length} 条记录，用户IP: ${req.ip}`);
-      console.log(`[批量更新] 数据库连接状态: ${sequelize.getDialect()}://${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
-
-      // 临时禁用外键检查以提升性能（仅在事务中）
-      await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { transaction });
-
-      let successCount = 0;
-      let errorCount = 0;
-      const errors = [];
-
-      // 性能优化：批量更新
-      // 按字段分组，构造批量更新SQL
-      const fieldGroups = {};
-      
-      for (const update of updates) {
-        // 过滤并验证允许更新的字段
-        const fieldsToUpdate = {};
-        for (const [key, value] of Object.entries(update.fields)) {
-          if (allowedFields.includes(key)) {
-            // 数据类型验证
-            const validation = fieldValidations[key];
-            let isValid = true;
-            let validationError = '';
-
-            try {
-              if (validation.type === 'number') {
-                const numValue = Number(value);
-                if (isNaN(numValue)) {
-                  isValid = false;
-                  validationError = `字段 ${key} 必须是数字`;
-                } else if (validation.min !== undefined && numValue < validation.min) {
-                  isValid = false;
-                  validationError = `字段 ${key} 不能小于 ${validation.min}`;
-                } else if (validation.max !== undefined && numValue > validation.max) {
-                  isValid = false;
-                  validationError = `字段 ${key} 不能大于 ${validation.max}`;
-                } else {
-                  fieldsToUpdate[key] = numValue;
-                }
-              } else if (validation.type === 'string') {
-                if (typeof value !== 'string') {
-                  isValid = false;
-                  validationError = `字段 ${key} 必须是字符串`;
-                } else if (validation.maxLength && value.length > validation.maxLength) {
-                  isValid = false;
-                  validationError = `字段 ${key} 长度不能超过 ${validation.maxLength} 字符`;
-                } else {
-                  fieldsToUpdate[key] = value;
-                }
-              } else if (validation.type === 'object') {
-                if (typeof value !== 'object' || value === null) {
-                  isValid = false;
-                  validationError = `字段 ${key} 必须是对象`;
-                } else {
-                  fieldsToUpdate[key] = JSON.stringify(value);
-                }
-              }
-            } catch (error) {
-              isValid = false;
-              validationError = `字段 ${key} 数据格式错误: ${error.message}`;
-            }
-
-            if (!isValid) {
-              errors.push({
-                vehicle_id: update.vehicle_id,
-                error: validationError
-              });
-              errorCount++;
-              continue;
-            }
-          }
-        }
-
-        if (Object.keys(fieldsToUpdate).length === 0) {
-          errors.push({
-            vehicle_id: update.vehicle_id,
-            error: '没有有效的字段需要更新'
-          });
-          errorCount++;
-          continue;
-        }
-
-        // 按字段分组
-        for (const [field, value] of Object.entries(fieldsToUpdate)) {
-          if (!fieldGroups[field]) {
-            fieldGroups[field] = [];
-          }
-          fieldGroups[field].push({
-            vehicle_id: update.vehicle_id,
-            value: value
-          });
-        }
-      }
-
-      // 执行批量更新
-      for (const [field, updates] of Object.entries(fieldGroups)) {
-        try {
-          // 安全：使用参数化查询防止SQL注入
-          const caseWhenClause = updates.map((_, index) => 
-            `WHEN ? THEN ?`
-          ).join(' ');
-          
-          // 构造参数数组：vehicle_id, value, vehicle_id, value, ...
-          const params = [];
-          const vehicleIdParams = [];
-          
-          for (const update of updates) {
-            params.push(update.vehicle_id, update.value);
-            vehicleIdParams.push('?');
-          }
-          
-          const sql = `
-            UPDATE vehicles 
-            SET ${field} = CASE vehicle_id 
-              ${caseWhenClause}
-              ELSE ${field}
-            END
-            WHERE vehicle_id IN (${vehicleIdParams.join(',')})
-          `;
-
-          // 添加vehicle_id参数到查询参数中
-          const allParams = [...params, ...updates.map(u => u.vehicle_id)];
-
-          const [result] = await sequelize.query(sql, {
-            replacements: allParams,
-            transaction
-          });
-
-          successCount += updates.length;
-          
-        } catch (error) {
-          console.error(`批量更新字段 ${field} 失败:`, error);
-          // 记录失败的更新
-          for (const update of updates) {
-            errors.push({
-              vehicle_id: update.vehicle_id,
-              error: `字段 ${field} 更新失败: ${error.message}`
-            });
-            errorCount++;
-          }
-        }
-      }
-
-      // 重新启用外键检查
-      await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { transaction });
-
-      // 提交事务
-      await transaction.commit();
-
-      // 清除相关缓存
-      cacheUtils.clearVehicleCache();
-
-      res.json({
-        code: 200,
-        message: '批量更新完成',
-        data: {
-          total_processed: updates.length,
-          success_count: successCount,
-          error_count: errorCount,
-          errors: errors.length > 0 ? errors : null
-        }
-      });
-
-    } catch (error) {
-      // 安全的事务回滚
-      if (transaction) {
-        try {
-          await transaction.rollback();
-        } catch (rollbackError) {
-          console.error('事务回滚失败:', rollbackError);
-        }
-      }
-      
-      console.error('批量更新车辆失败:', error);
-      
-      // 根据错误类型返回不同的错误信息
-      let errorMessage = '批量更新车辆失败';
-      if (error.name === 'SequelizeDatabaseError') {
-        if (error.message.includes('connection')) {
-          errorMessage = '数据库连接异常，请稍后重试';
-        } else if (error.message.includes('timeout')) {
-          errorMessage = '数据库操作超时，请稍后重试';
-        }
-      }
-      
-      res.status(500).json({
-        code: 500,
-        message: errorMessage,
-        data: null
-      });
-    }
-  }
 }
 
 module.exports = new VehicleController();

@@ -9,6 +9,22 @@ const path = require('path');
  */
 class VehiclePublishController {
   /**
+   * 格式化座位数字段，确保与存量数据兼容
+   * @param {string} seats - 座位数输入
+   * @returns {string} 格式化后的座位数
+   */
+  static formatSeatsField(seats) {
+    if (!seats) return '';
+
+    // 移除所有空格和特殊字符，只保留数字
+    const numericOnly = String(seats).replace(/[^\d]/g, '');
+
+    if (!numericOnly) return '';
+
+    // 统一格式化为："数字座位"，如 "5座位"
+    return `${numericOnly}座位`;
+  }
+  /**
    * 生成唯一车辆ID
    * @param {number} userId - 用户ID
    * @returns {string} 车辆ID
@@ -63,11 +79,17 @@ class VehiclePublishController {
       body('phone_number')
         .notEmpty()
         .withMessage('联系电话不能为空')
+        .isLength({ min: 8, max: 15 })
+        .withMessage('手机号长度应在8-15位之间')
+        .matches(/^[\d\+\-\(\)\s]+$/)
+        .withMessage('手机号只能包含数字、加号、减号、括号和空格')
         .custom((value) => {
+          // 清理格式，只保留数字
+          const cleanPhone = value.replace(/[\s\-\+\(\)]/g, '');
           // 支持中国大陆手机号（11位）和香港手机号（8位）
           const chinaMainlandPattern = /^1[3-9]\d{9}$/;
           const hongKongPattern = /^[2-9]\d{7}$/;
-          return chinaMainlandPattern.test(value) || hongKongPattern.test(value);
+          return chinaMainlandPattern.test(cleanPhone) || hongKongPattern.test(cleanPhone);
         })
         .withMessage('手机号格式不正确'),
 
@@ -84,8 +106,17 @@ class VehiclePublishController {
 
       body('seats')
         .optional()
-        .isLength({ max: 20 })
-        .withMessage('座位数长度不能超过20个字符'),
+        .custom((value) => {
+          if (value) {
+            // 验证座位数格式：只允许数字、汉字"座位"、空格
+            const seatsPattern = /^[\d\s座位]*$/;
+            if (!seatsPattern.test(value)) {
+              throw new Error('座位数只能包含数字和"座位"文字');
+            }
+          }
+          return true;
+        })
+        .withMessage('座位数格式不正确'),
 
       body('engine_volume')
         .optional()
@@ -153,7 +184,7 @@ class VehiclePublishController {
           car_brand: vehicleData.car_brand,
           car_model: vehicleData.car_model,
           fuel_type: vehicleData.fuel_type || '',
-          seats: vehicleData.seats || '',
+          seats: this.formatSeatsField(vehicleData.seats),
           engine_volume: vehicleData.engine_volume || '',
           transmission: vehicleData.transmission || '',
           year: vehicleData.year,
@@ -298,7 +329,7 @@ class VehiclePublishController {
           car_brand: vehicleData.car_brand,
           car_model: vehicleData.car_model || '',
           fuel_type: vehicleData.fuel_type || '',
-          seats: vehicleData.seats || '',
+          seats: this.formatSeatsField(vehicleData.seats),
           engine_volume: vehicleData.engine_volume || '',
           transmission: vehicleData.transmission || '',
           year: vehicleData.year || new Date().getFullYear().toString(),
@@ -434,8 +465,38 @@ class VehiclePublishController {
         });
       }
 
+      // 定义允许更新的字段白名单
+      const allowedFields = [
+        'vehicle_type', 'car_category', 'car_brand', 'car_model', 
+        'fuel_type', 'seats', 'engine_volume', 'transmission', 
+        'year', 'description', 'price', 'current_price', 'original_price',
+        'contact_info', 'contact_name', 'phone_number', 'is_special_offer',
+        'transport_purpose', 'publish_status'
+      ];
+
+      // 过滤更新数据，只保留允许的字段
+      const filteredUpdateData = {};
+      for (const [key, value] of Object.entries(updateData)) {
+        if (allowedFields.includes(key)) {
+          // 特殊处理座位数字段
+          if (key === 'seats') {
+            filteredUpdateData[key] = this.formatSeatsField(value);
+          } else {
+            filteredUpdateData[key] = value;
+          }
+        }
+      }
+
+      // 如果没有有效的更新字段
+      if (Object.keys(filteredUpdateData).length === 0) {
+        return res.status(400).json({
+          code: 400,
+          message: '没有有效的字段需要更新'
+        });
+      }
+
       // 更新车辆信息
-      await vehicle.update(updateData);
+      await vehicle.update(filteredUpdateData);
 
       res.json({
         code: 200,
@@ -447,8 +508,7 @@ class VehiclePublishController {
       console.error('更新车辆信息失败:', error);
       res.status(500).json({
         code: 500,
-        message: '更新车辆信息失败',
-        error: error.message
+        message: '更新车辆信息失败'
       });
     }
   }
